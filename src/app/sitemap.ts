@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { db, schema } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://ssanguine.vercel.app";
+const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine.vercel.app";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes = ["", "/sign-in", "/wishlist", "/cart"];

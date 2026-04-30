@@ -1,4 +1,4 @@
--- Ssanguine — initial schema
+-- Saanguine — initial schema
 -- Run via Supabase SQL editor OR `npm run db:migrate` after `db:generate`.
 
 -- ─── Catalogue ─────────────────────────────────────────────────────────

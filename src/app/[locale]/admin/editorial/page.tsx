@@ -5,9 +5,9 @@ export default async function AdminEditorialPage() {
   const brand = await getBrand();
   return (
     <EditorialClient initial={brand || {
-      name: "Ssanguine",
+      name: "Saanguine",
       tagline: "Garments, flora & small ceremonies",
-      email: "concierge@ssanguine.com",
+      email: "concierge@saanguine.com",
       announcement: "Complimentary shipping over ৳3,000 · Cash on Delivery available nationwide",
     }} />
   );

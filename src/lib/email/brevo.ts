@@ -14,7 +14,7 @@ type SendArgs = {
 export async function sendEmail(args: SendArgs): Promise<{ ok: boolean; id?: string; error?: string }> {
   const apiKey = process.env.BREVO_API_KEY;
   const fromEmail = process.env.BREVO_FROM_EMAIL;
-  const fromName = process.env.BREVO_FROM_NAME || "Maison Ssanguine";
+  const fromName = process.env.BREVO_FROM_NAME || "Maison Saanguine";
 
   if (!apiKey || !fromEmail) {
     console.warn("[brevo] missing BREVO_API_KEY or BREVO_FROM_EMAIL — skipping send");

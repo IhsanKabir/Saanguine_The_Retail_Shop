@@ -1,6 +1,6 @@
-# Ssanguine — Web
+# Saanguine — Web
 
-Production storefront for Maison Ssanguine. Bangladesh, COD-first soft launch.
+Production storefront for Maison Saanguine. Bangladesh, COD-first soft launch.
 
 ## Stack
 

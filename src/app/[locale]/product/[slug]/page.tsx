@@ -11,7 +11,7 @@ import AddToBagButton from "@/components/storefront/AddToBagButton";
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://ssanguine.vercel.app";
+const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine.vercel.app";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
@@ -70,7 +70,7 @@ export default async function ProductPage({ params }: Props) {
       ratingValue: Number(p.rating),
       reviewCount: p.reviewCount,
     } : undefined,
-    brand: { "@type": "Brand", name: "Ssanguine" },
+    brand: { "@type": "Brand", name: "Saanguine" },
   };
 
   return (

@@ -25,7 +25,7 @@ export default async function AdminLayout({ children, params }: Props) {
   return (
     <div className="admin-body">
       <aside className="admin-side">
-        <div className="admin-logo">Ssanguine<small>ADMIN · v3.0</small></div>
+        <div className="admin-logo">Saanguine<small>ADMIN · v3.0</small></div>
         <div className="admin-nav-group">Commerce</div>
         {nav.map((n) => (
           <Link key={n.id} href={n.id as never} className="admin-link">

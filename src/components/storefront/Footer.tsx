@@ -41,7 +41,7 @@ export default async function Footer() {
           </div>
           <div>
             <div className="col-title">{t("footer.contact")}</div>
-            <ul><li>concierge@ssanguine.co</li></ul>
+            <ul><li>concierge@saanguine.co</li></ul>
           </div>
         </div>
         <div className="footer-bottom">

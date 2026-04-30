@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Ssanguine Maison",
-    short_name: "Ssanguine",
+    name: "Saanguine Maison",
+    short_name: "Saanguine",
     description: "Garments, flora & small ceremonies for the violet hour.",
     start_url: "/en",
     display: "standalone",

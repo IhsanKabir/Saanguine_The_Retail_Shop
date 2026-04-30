@@ -160,7 +160,7 @@ export async function createCodOrder(input: CreateOrderInput) {
     .catch((e) => console.error("[order email]", e));
   sendSms(
     data.customer.phone,
-    `Maison Ssanguine: order ${number} confirmed (COD ${formatBdt(total)}). Have cash ready for our courier.`,
+    `Maison Saanguine: order ${number} confirmed (COD ${formatBdt(total)}). Have cash ready for our courier.`,
   ).catch((e) => console.error("[order sms]", e));
 
   return { ok: true as const, number, totalBdt: total };
