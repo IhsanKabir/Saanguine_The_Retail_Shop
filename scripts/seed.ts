@@ -7,7 +7,8 @@
  *
  * Prices in whole BDT — adjust before launch based on market research.
  */
-import "dotenv/config";
+import * as dotenv from "dotenv";
+dotenv.config({ override: true });
 import postgres from "postgres";
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
