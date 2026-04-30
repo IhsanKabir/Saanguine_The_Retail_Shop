@@ -1,0 +1,97 @@
+/**
+ * Email templates as inline HTML strings. No template engine to keep things simple.
+ * Templates use the maison's serif typography, deep purple brand color, and gold rule.
+ */
+import { formatBdt } from "@/lib/utils";
+
+const SHELL = (body: string) => `<!doctype html>
+<html><head><meta charset="utf-8"/><title>Ssanguine Maison</title></head>
+<body style="margin:0;padding:0;background:#fdfbf7;font-family:Georgia,'Cormorant Garamond',serif;color:#2a1854;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#fdfbf7;padding:40px 20px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" style="background:white;max-width:560px;width:100%;">
+        <tr><td style="padding:40px 40px 20px;border-bottom:1px solid #e8e0d2;text-align:center;">
+          <div style="font-family:Georgia,serif;font-style:italic;font-size:32px;color:#2a1854;letter-spacing:.02em;">Ssanguine</div>
+          <div style="font-family:'Courier New',monospace;font-size:10px;letter-spacing:.4em;color:#a07e2c;margin-top:6px;">MAISON · MMXXVI</div>
+        </td></tr>
+        <tr><td style="padding:32px 40px;font-family:Georgia,serif;color:#2a1854;line-height:1.7;">
+          ${body}
+        </td></tr>
+        <tr><td style="padding:24px 40px 32px;border-top:1px solid #e8e0d2;text-align:center;font-family:'Courier New',monospace;font-size:11px;color:#7a6a52;letter-spacing:.1em;">
+          Maison Ssanguine · Bangladesh<br/>
+          <span style="font-size:10px;letter-spacing:.3em;">© MMXXVI · ALL RIGHTS RESERVED</span>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+export type OrderEmailLine = { name: string; qty: number; lineTotalBdt: number; color?: string | null; size?: string | null };
+
+export type OrderEmailData = {
+  number: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: { line1: string; area?: string; city: string; postcode?: string };
+  lines: OrderEmailLine[];
+  subtotalBdt: number;
+  shippingBdt: number;
+  codFeeBdt: number;
+  totalBdt: number;
+  paymentMethod: "cod" | "card" | "bkash" | "nagad" | "rocket";
+};
+
+export function orderPlacedEmail(d: OrderEmailData) {
+  const linesHtml = d.lines.map(l => `
+    <tr>
+      <td style="padding:10px 0;border-bottom:1px solid #f0e8d8;font-family:Georgia,serif;font-size:14px;">
+        ${l.name}${l.color ? ` · <span style="color:#7a6a52;font-size:12px;">${l.color}</span>` : ""}${l.size ? ` · <span style="color:#7a6a52;font-size:12px;">${l.size}</span>` : ""}
+        <div style="font-family:'Courier New',monospace;font-size:11px;color:#7a6a52;">Qty ${l.qty}</div>
+      </td>
+      <td style="padding:10px 0;border-bottom:1px solid #f0e8d8;text-align:right;font-family:Georgia,serif;font-size:14px;">${formatBdt(l.lineTotalBdt)}</td>
+    </tr>
+  `).join("");
+
+  const codNote = d.paymentMethod === "cod"
+    ? `<p style="background:#fdf6e8;border:1px solid #e8d8a8;padding:14px 16px;font-size:13px;margin:20px 0 0;">
+         <b>Cash on Delivery:</b> please have <b>${formatBdt(d.totalBdt)}</b> ready when our courier arrives.
+       </p>`
+    : "";
+
+  const subject = `Your maison order ${d.number}`;
+  const body = `
+    <p style="font-size:15px;margin:0 0 4px;">Dear ${d.customerName.split(" ")[0]},</p>
+    <p style="font-size:15px;margin:0 0 24px;">Thank you for your order. The maison has begun the small ceremony of preparing it.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #e8d8a8;">
+      <tr><td style="padding:14px 0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:.2em;color:#a07e2c;">ORDER · ${d.number}</td></tr>
+    </table>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0">${linesHtml}</table>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px;">
+      <tr><td style="padding:4px 0;font-size:13px;color:#7a6a52;">Subtotal</td><td style="padding:4px 0;text-align:right;font-size:13px;">${formatBdt(d.subtotalBdt)}</td></tr>
+      <tr><td style="padding:4px 0;font-size:13px;color:#7a6a52;">Shipping</td><td style="padding:4px 0;text-align:right;font-size:13px;">${d.shippingBdt === 0 ? "Complimentary" : formatBdt(d.shippingBdt)}</td></tr>
+      ${d.codFeeBdt > 0 ? `<tr><td style="padding:4px 0;font-size:13px;color:#7a6a52;">COD handling</td><td style="padding:4px 0;text-align:right;font-size:13px;">${formatBdt(d.codFeeBdt)}</td></tr>` : ""}
+      <tr><td style="padding:14px 0 0;border-top:1px solid #e8d8a8;font-family:Georgia,serif;font-size:18px;color:#2a1854;">Total</td><td style="padding:14px 0 0;border-top:1px solid #e8d8a8;text-align:right;font-family:Georgia,serif;font-size:18px;color:#2a1854;font-weight:600;">${formatBdt(d.totalBdt)}</td></tr>
+    </table>
+    ${codNote}
+    <p style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:.2em;color:#a07e2c;margin:32px 0 8px;">DELIVERING TO</p>
+    <p style="font-size:14px;line-height:1.6;margin:0;">
+      ${d.customerName}<br/>${d.shippingAddress.line1}<br/>${d.shippingAddress.area ? d.shippingAddress.area + ", " : ""}${d.shippingAddress.city}${d.shippingAddress.postcode ? " — " + d.shippingAddress.postcode : ""}<br/>
+      ${d.customerPhone}
+    </p>
+    <p style="font-size:13px;color:#7a6a52;margin:32px 0 0;line-height:1.7;">We will be in touch when the courier collects your parcel. Reply to this email if anything is amiss.</p>
+    <p style="font-style:italic;font-size:14px;color:#2a1854;margin:24px 0 0;">— The atelier</p>
+  `;
+  return { subject, html: SHELL(body) };
+}
+
+export function orderShippedEmail(d: OrderEmailData & { courier: string; tracking?: string }) {
+  const subject = `On its way · ${d.number}`;
+  const body = `
+    <p style="font-size:15px;margin:0 0 24px;">Dear ${d.customerName.split(" ")[0]},</p>
+    <p style="font-size:15px;margin:0 0 24px;">Your order is in the hands of <b>${d.courier}</b>${d.tracking ? `, tracking <code style="font-family:'Courier New',monospace;background:#f4ecd8;padding:2px 6px;">${d.tracking}</code>` : ""}.</p>
+    ${d.paymentMethod === "cod" ? `<p style="background:#fdf6e8;border:1px solid #e8d8a8;padding:14px 16px;font-size:13px;">Please have <b>${formatBdt(d.totalBdt)}</b> ready in cash for the courier.</p>` : ""}
+    <p style="font-style:italic;font-size:14px;color:#2a1854;margin:24px 0 0;">— The atelier</p>
+  `;
+  return { subject, html: SHELL(body) };
+}

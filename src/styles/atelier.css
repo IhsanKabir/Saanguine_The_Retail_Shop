@@ -1,0 +1,967 @@
+/* ===========================================================
+   Ssanguine — Atelier
+   Generative product art + editorial layout primitives.
+   Replaces the striped .ph wireframe with deterministic
+   per-category compositions, keyed by --cmp-h (hue offset),
+   --cmp-i (initial), and category class.
+   =========================================================== */
+
+/* ---------- Composition base ---------- */
+.cmp {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  background: oklch(0.92 0.04 300);
+  --cmp-h: 0;
+  --cmp-i: "S";
+  --cmp-fg: oklch(0.95 0.05 85 / 0.55);
+}
+.cmp::before, .cmp::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+}
+.cmp .cmp-mark {
+  position: relative; z-index: 2;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(34px, 22%, 120px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--cmp-fg);
+  text-shadow: 0 1px 0 oklch(1 0 0 / 0.06), 0 -1px 0 oklch(0 0 0 / 0.18);
+  user-select: none;
+}
+.cmp .cmp-mark::before {
+  content: var(--cmp-i);
+}
+.cmp .cmp-cap {
+  position: absolute; left: 12px; bottom: 10px; z-index: 3;
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: .25em; text-transform: uppercase;
+  color: oklch(1 0 0 / 0.55);
+  background: oklch(0 0 0 / 0.32);
+  padding: 3px 7px; border-radius: 1px;
+  backdrop-filter: blur(2px);
+}
+.cmp .cmp-corner {
+  position: absolute; top: 10px; right: 10px; z-index: 3;
+  font-family: var(--mono); font-size: 8px; letter-spacing: .3em;
+  color: oklch(1 0 0 / 0.5);
+  text-transform: uppercase;
+}
+
+/* Universal grain — gives every composition a tactile film */
+.cmp .cmp-grain {
+  position: absolute; inset: 0; z-index: 1;
+  background-image: radial-gradient(oklch(0 0 0 / 0.18) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+  opacity: 0.35;
+}
+
+/* Gold foil — only when tag === "new" */
+.cmp.is-new::after {
+  background:
+    conic-gradient(from calc(20deg + var(--cmp-h, 0) * 1deg),
+      oklch(0.85 0.13 85 / 0.18),
+      oklch(0.95 0.06 85 / 0.32),
+      oklch(0.65 0.13 75 / 0.10),
+      oklch(0.85 0.13 85 / 0.22));
+  mix-blend-mode: screen;
+  opacity: 0.7;
+}
+
+/* ---------- Clothing — draped fabric ---------- */
+.cmp-clothing {
+  background:
+    linear-gradient(135deg,
+      oklch(0.32 0.14 calc(320 + var(--cmp-h) * 1)) 0%,
+      oklch(0.18 0.10 calc(310 + var(--cmp-h) * 1)) 100%);
+}
+.cmp-clothing::before {
+  background:
+    repeating-linear-gradient(110deg,
+      transparent 0 18px,
+      oklch(0.55 0.18 calc(320 + var(--cmp-h) * 1) / 0.10) 18px 20px),
+    radial-gradient(ellipse 70% 100% at 30% 110%,
+      oklch(0.50 0.18 calc(330 + var(--cmp-h) * 1) / 0.55), transparent 60%);
+}
+
+/* ---------- Books — bound spines ---------- */
+.cmp-books {
+  background: linear-gradient(180deg,
+    oklch(0.28 0.08 calc(30 + var(--cmp-h) * 1)),
+    oklch(0.18 0.06 calc(28 + var(--cmp-h) * 1)));
+}
+.cmp-books::before {
+  background:
+    repeating-linear-gradient(90deg,
+      oklch(0.35 0.12 calc(35 + var(--cmp-h) * 1)) 0 18%,
+      oklch(0.22 0.08 calc(28 + var(--cmp-h) * 1)) 18% 19%,
+      oklch(0.40 0.14 calc(30 + var(--cmp-h) * 1)) 19% 38%,
+      oklch(0.22 0.08 calc(28 + var(--cmp-h) * 1)) 38% 39%,
+      oklch(0.30 0.10 calc(40 + var(--cmp-h) * 1)) 39% 60%,
+      oklch(0.22 0.08 calc(28 + var(--cmp-h) * 1)) 60% 61%,
+      oklch(0.36 0.12 calc(25 + var(--cmp-h) * 1)) 61% 84%,
+      oklch(0.22 0.08 calc(28 + var(--cmp-h) * 1)) 84% 85%,
+      oklch(0.32 0.10 calc(38 + var(--cmp-h) * 1)) 85% 100%);
+}
+.cmp-books::after {
+  background: linear-gradient(180deg,
+    transparent 0 35%,
+    oklch(0.85 0.13 85 / 0.25) 35% 36%,
+    transparent 36% 64%,
+    oklch(0.85 0.13 85 / 0.25) 64% 65%,
+    transparent 65%);
+}
+.cmp-books .cmp-mark { color: oklch(0.85 0.13 85 / 0.7); }
+
+/* ---------- Watches — concentric dial ---------- */
+.cmp-watches {
+  background: radial-gradient(circle at 50% 50%,
+    oklch(0.40 0.10 calc(260 + var(--cmp-h) * 1)) 0%,
+    oklch(0.18 0.08 calc(260 + var(--cmp-h) * 1)) 60%,
+    oklch(0.10 0.04 260) 100%);
+}
+.cmp-watches::before {
+  background:
+    repeating-radial-gradient(circle at 50% 50%,
+      transparent 0 4%,
+      oklch(0.85 0.13 85 / 0.10) 4% 4.3%);
+}
+.cmp-watches::after {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 38%, oklch(0.85 0.13 85 / 0.6) 38% 39%, transparent 39% 100%),
+    radial-gradient(circle at 50% 50%, transparent 0 22%, oklch(0.85 0.13 85 / 0.3) 22% 22.5%, transparent 22.5%),
+    conic-gradient(from 0deg at 50% 50%,
+      oklch(0.85 0.13 85 / 0.25) 0deg 1deg,
+      transparent 1deg 30deg,
+      oklch(0.85 0.13 85 / 0.25) 30deg 31deg,
+      transparent 31deg 60deg,
+      oklch(0.85 0.13 85 / 0.25) 60deg 61deg,
+      transparent 61deg 90deg,
+      oklch(0.85 0.13 85 / 0.6) 90deg 92deg,
+      transparent 92deg 120deg,
+      oklch(0.85 0.13 85 / 0.25) 120deg 121deg,
+      transparent 121deg 150deg,
+      oklch(0.85 0.13 85 / 0.25) 150deg 151deg,
+      transparent 151deg 180deg,
+      oklch(0.85 0.13 85 / 0.6) 180deg 182deg,
+      transparent 182deg 210deg,
+      oklch(0.85 0.13 85 / 0.25) 210deg 211deg,
+      transparent 211deg 240deg,
+      oklch(0.85 0.13 85 / 0.25) 240deg 241deg,
+      transparent 241deg 270deg,
+      oklch(0.85 0.13 85 / 0.6) 270deg 272deg,
+      transparent 272deg 300deg,
+      oklch(0.85 0.13 85 / 0.25) 300deg 301deg,
+      transparent 301deg 330deg,
+      oklch(0.85 0.13 85 / 0.25) 330deg 331deg,
+      transparent 331deg);
+}
+.cmp-watches .cmp-mark { color: oklch(0.85 0.13 85 / 0.85); font-size: clamp(22px, 14%, 70px); }
+
+/* ---------- Perfume — vertical mist ---------- */
+.cmp-perfume {
+  background: linear-gradient(180deg,
+    oklch(0.92 0.04 calc(280 + var(--cmp-h) * 1)),
+    oklch(0.78 0.10 calc(290 + var(--cmp-h) * 1)) 50%,
+    oklch(0.45 0.15 calc(300 + var(--cmp-h) * 1)));
+}
+.cmp-perfume::before {
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 35%, oklch(0.95 0.05 85 / 0.4), transparent 70%),
+    radial-gradient(circle at 50% 65%, oklch(0.40 0.18 calc(310 + var(--cmp-h) * 1) / 0.45), transparent 55%);
+}
+/* Bottle silhouette */
+.cmp-perfume::after {
+  background:
+    linear-gradient(180deg,
+      transparent 0 30%,
+      oklch(0.20 0.12 calc(300 + var(--cmp-h) * 1) / 0.5) 30% 32%,
+      transparent 32% 36%,
+      oklch(0.20 0.12 calc(300 + var(--cmp-h) * 1) / 0.45) 36% 90%,
+      oklch(0.10 0.08 calc(300 + var(--cmp-h) * 1) / 0.6) 90% 92%,
+      transparent 92%);
+  -webkit-mask: linear-gradient(90deg, transparent 0 36%, #000 38% 62%, transparent 64%);
+          mask: linear-gradient(90deg, transparent 0 36%, #000 38% 62%, transparent 64%);
+}
+.cmp-perfume .cmp-mark { color: oklch(0.30 0.15 300 / 0.55); }
+
+/* ---------- Flowers — soft blossoms ---------- */
+.cmp-flowers {
+  background: linear-gradient(160deg,
+    oklch(0.86 0.08 calc(340 + var(--cmp-h) * 1)),
+    oklch(0.55 0.18 calc(330 + var(--cmp-h) * 1)) 70%,
+    oklch(0.32 0.14 calc(310 + var(--cmp-h) * 1)));
+}
+.cmp-flowers::before {
+  background:
+    radial-gradient(ellipse 35% 45% at 30% 30%, oklch(0.85 0.14 calc(0 + var(--cmp-h) * 1) / 0.65), transparent 70%),
+    radial-gradient(ellipse 30% 35% at 75% 60%, oklch(0.78 0.16 calc(330 + var(--cmp-h) * 1) / 0.7), transparent 70%),
+    radial-gradient(ellipse 25% 28% at 55% 80%, oklch(0.65 0.14 calc(20 + var(--cmp-h) * 1) / 0.55), transparent 70%),
+    radial-gradient(ellipse 20% 22% at 20% 75%, oklch(0.92 0.08 calc(85 + var(--cmp-h) * 1) / 0.5), transparent 70%);
+}
+.cmp-flowers::after {
+  background:
+    radial-gradient(circle at 30% 30%, oklch(0.95 0.10 85 / 0.4) 0 1.5%, transparent 1.5%),
+    radial-gradient(circle at 75% 60%, oklch(0.95 0.10 85 / 0.4) 0 1.5%, transparent 1.5%),
+    radial-gradient(circle at 55% 80%, oklch(0.95 0.10 85 / 0.3) 0 1.2%, transparent 1.2%);
+}
+.cmp-flowers .cmp-mark { color: oklch(0.20 0.10 300 / 0.55); }
+
+/* ---------- Jewelry — faceted gold ---------- */
+.cmp-jewelry {
+  background: conic-gradient(from calc(45deg + var(--cmp-h) * 1deg) at 50% 50%,
+    oklch(0.78 0.12 85),
+    oklch(0.55 0.13 75),
+    oklch(0.92 0.08 90),
+    oklch(0.65 0.13 75),
+    oklch(0.78 0.12 85));
+}
+.cmp-jewelry::before {
+  background:
+    conic-gradient(from calc(15deg + var(--cmp-h) * 1deg) at 50% 50%,
+      oklch(1 0 0 / 0.25) 0deg 30deg, transparent 30deg 90deg,
+      oklch(0 0 0 / 0.20) 90deg 120deg, transparent 120deg 180deg,
+      oklch(1 0 0 / 0.20) 180deg 210deg, transparent 210deg 270deg,
+      oklch(0 0 0 / 0.18) 270deg 300deg, transparent 300deg);
+  mix-blend-mode: overlay;
+}
+.cmp-jewelry::after {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 28%, oklch(0.20 0.10 300 / 0.85) 28% 32%, transparent 32%);
+}
+.cmp-jewelry .cmp-mark { color: oklch(0.95 0.10 85 / 0.95); }
+
+/* ---------- Anime — high-contrast halftone ---------- */
+.cmp-anime {
+  background: linear-gradient(135deg,
+    oklch(0.45 0.22 calc(340 + var(--cmp-h) * 1)),
+    oklch(0.18 0.12 calc(290 + var(--cmp-h) * 1)));
+}
+.cmp-anime::before {
+  background:
+    repeating-radial-gradient(circle at 0 0,
+      oklch(1 0 0 / 0.18) 0 1.5px,
+      transparent 1.5px 8px);
+  mix-blend-mode: screen;
+}
+.cmp-anime::after {
+  background:
+    linear-gradient(135deg,
+      transparent 0 48%,
+      oklch(0.95 0.20 80) 48% 52%,
+      transparent 52%);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+}
+.cmp-anime .cmp-mark {
+  color: oklch(0.95 0.20 80 / 0.9);
+  font-family: var(--mono);
+  font-style: normal; font-weight: 500;
+  font-size: clamp(22px, 14%, 70px);
+  letter-spacing: 0;
+}
+
+/* ---------- Accessories — folded leather ---------- */
+.cmp-accessories {
+  background: linear-gradient(140deg,
+    oklch(0.40 0.10 calc(50 + var(--cmp-h) * 1)),
+    oklch(0.22 0.08 calc(40 + var(--cmp-h) * 1)));
+}
+.cmp-accessories::before {
+  background:
+    linear-gradient(110deg,
+      transparent 0 35%,
+      oklch(0.55 0.12 calc(50 + var(--cmp-h) * 1) / 0.5) 35% 36%,
+      transparent 36% 65%,
+      oklch(0.18 0.06 calc(35 + var(--cmp-h) * 1) / 0.5) 65% 66%,
+      transparent 66%),
+    repeating-linear-gradient(50deg,
+      transparent 0 24px,
+      oklch(0 0 0 / 0.06) 24px 25px);
+}
+.cmp-accessories::after {
+  background:
+    radial-gradient(ellipse 60% 30% at 50% 50%, oklch(0.85 0.13 85 / 0.18), transparent 70%);
+}
+.cmp-accessories .cmp-mark { color: oklch(0.85 0.13 85 / 0.55); }
+
+/* ---------- Boardgames — parchment + grid ---------- */
+.cmp-boardgames {
+  background: linear-gradient(160deg,
+    oklch(0.85 0.06 calc(75 + var(--cmp-h) * 1)),
+    oklch(0.62 0.10 calc(60 + var(--cmp-h) * 1)));
+}
+.cmp-boardgames::before {
+  background:
+    repeating-linear-gradient(0deg,
+      transparent 0 16px,
+      oklch(0.30 0.10 30 / 0.10) 16px 17px),
+    repeating-linear-gradient(90deg,
+      transparent 0 16px,
+      oklch(0.30 0.10 30 / 0.10) 16px 17px);
+}
+.cmp-boardgames::after {
+  background:
+    radial-gradient(circle at 30% 35%, oklch(0.30 0.18 25 / 0.7) 0 2%, transparent 3%),
+    radial-gradient(circle at 70% 60%, oklch(0.20 0.12 270 / 0.7) 0 2%, transparent 3%),
+    radial-gradient(circle at 55% 25%, oklch(0.30 0.10 150 / 0.6) 0 1.6%, transparent 2.5%),
+    linear-gradient(45deg, transparent 0 49%, oklch(0.30 0.10 30 / 0.5) 49% 50%, transparent 50% 100%);
+}
+.cmp-boardgames .cmp-mark { color: oklch(0.25 0.12 30 / 0.55); }
+
+/* ---------- Variant offsets (gallery — 4 reads per product) ---------- */
+.cmp[data-v="1"] { transform: scale(1); }
+.cmp[data-v="1"]::before { transform: scale(1.4) rotate(8deg); transform-origin: 30% 70%; }
+.cmp[data-v="2"]::before { transform: scale(1.6) rotate(-12deg); transform-origin: 70% 30%; }
+.cmp[data-v="2"]::after  { transform: rotate(180deg); }
+.cmp[data-v="3"]::before { transform: scale(2.0) rotate(45deg); transform-origin: center; filter: blur(2px); }
+.cmp[data-v="3"] .cmp-mark { font-size: clamp(60px, 40%, 200px); opacity: 0.8; }
+
+/* ---------- Tiny composition (admin cells, cart line items) ---------- */
+.cmp-sm { border-radius: 1px; }
+.cmp-sm .cmp-mark { font-size: 60%; }
+.cmp-sm .cmp-cap, .cmp-sm .cmp-corner, .cmp-sm .cmp-grain { display: none; }
+
+/* ===========================================================
+   Hero — editorial still-life replacement
+   =========================================================== */
+.hero-still {
+  position: relative;
+  aspect-ratio: 4/5;
+  display: grid; place-items: center;
+  isolation: isolate;
+}
+.hero-still .hs-frame {
+  position: absolute; inset: 0;
+  border: 1px solid oklch(0.85 0.13 85 / 0.55);
+  border-radius: 200px 200px 8px 8px / 280px 280px 8px 8px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, oklch(0.45 0.20 320 / 0.35), transparent 70%),
+    linear-gradient(180deg, oklch(0.30 0.16 320), oklch(0.18 0.12 290));
+  overflow: hidden;
+}
+.hero-still .hs-frame::after {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(135deg,
+    transparent 0 20px,
+    oklch(0.85 0.13 85 / 0.05) 20px 22px);
+}
+.hero-still .hs-numeral {
+  position: absolute; left: 50%; top: 38%;
+  transform: translate(-50%, -50%);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(80px, 14vw, 200px);
+  font-weight: 400;
+  color: oklch(0.85 0.13 85 / 0.85);
+  letter-spacing: -0.03em;
+  z-index: 2;
+  text-shadow: 0 4px 24px oklch(0.10 0.10 270 / 0.7);
+}
+.hero-still .hs-ring {
+  position: absolute; left: 50%; top: 38%;
+  width: 56%; aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid oklch(0.85 0.13 85 / 0.45);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  animation: hsRing 22s linear infinite;
+}
+.hero-still .hs-ring::after {
+  content: "";
+  position: absolute; top: -3px; left: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: oklch(0.85 0.13 85);
+  transform: translateX(-50%);
+  box-shadow: 0 0 12px oklch(0.85 0.13 85);
+}
+@keyframes hsRing { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.hero-still .hs-rail {
+  position: absolute; right: 18px; top: 18px; bottom: 18px;
+  z-index: 3;
+  display: flex; flex-direction: column; justify-content: space-between;
+  text-align: right;
+}
+.hero-still .hs-rail span {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: .35em; text-transform: uppercase;
+  color: oklch(0.85 0.13 85 / 0.7);
+  writing-mode: vertical-rl;
+  align-self: flex-end;
+}
+.hero-still .hs-cap {
+  position: absolute; left: 18px; bottom: 18px; z-index: 3;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--cream);
+  max-width: 60%; line-height: 1.4;
+}
+.hero-still .hs-cap small {
+  display: block; margin-top: 4px;
+  font-family: var(--mono); font-style: normal;
+  font-size: 9px; letter-spacing: .3em; text-transform: uppercase;
+  color: oklch(0.85 0.13 85 / 0.6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-still .hs-ring { animation: none; }
+}
+
+/* ===========================================================
+   Visual swatches (PDP)
+   =========================================================== */
+.swatch-vis-row {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  margin: 12px 0 8px;
+}
+.swatch-vis {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer;
+  padding: 4px;
+}
+.swatch-vis .dot {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid oklch(0.88 0.015 300);
+  position: relative;
+  transition: transform .15s ease;
+}
+.swatch-vis:hover .dot { transform: scale(1.08); }
+.swatch-vis.active .dot {
+  border-color: var(--purple-900);
+  box-shadow: 0 0 0 2px var(--cream), 0 0 0 3px var(--gold);
+}
+.swatch-vis .dot::after {
+  content: "";
+  position: absolute; inset: 2px; border-radius: 50%;
+  background: inherit;
+}
+.swatch-vis .lbl {
+  font-size: 10px; letter-spacing: .15em; text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.swatch-vis.active .lbl { color: var(--purple-900); font-weight: 500; }
+
+/* Size pill (when sizes are real options, not colors) */
+.swatch-row .swatch.size-pill {
+  min-width: 44px; padding: 8px 10px;
+  border-radius: 999px; font-size: 12px;
+}
+
+/* ===========================================================
+   Free-shipping progress (cart drawer)
+   =========================================================== */
+.ship-bar {
+  background: var(--purple-50);
+  border: 1px solid var(--purple-200);
+  padding: 12px 14px;
+  margin: 12px 0 18px;
+  border-radius: 2px;
+}
+.ship-bar .top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; color: var(--ink-soft);
+  letter-spacing: .08em;
+}
+.ship-bar .top b { color: var(--purple-900); font-weight: 500; }
+.ship-bar .track {
+  margin-top: 8px; height: 2px;
+  background: oklch(0.88 0.015 300);
+  overflow: hidden;
+}
+.ship-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+  width: var(--p, 0%);
+  transition: width .5s cubic-bezier(.2,.9,.3,1);
+}
+.ship-bar.met .fill { background: var(--ok); }
+.ship-bar.met .top b { color: var(--ok); }
+
+/* Gift wrap / note toggles */
+.upsell {
+  display: grid; grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.upsell:hover { border-color: var(--purple-400); }
+.upsell.on { border-color: var(--purple-800); background: var(--purple-50); }
+.upsell .ic {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  background: var(--purple-50);
+  color: var(--purple-800);
+  border-radius: 50%;
+}
+.upsell.on .ic { background: var(--purple-800); color: var(--gold); }
+.upsell .name { font-size: 13px; font-weight: 500; color: var(--purple-900); }
+.upsell .sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+.upsell .price { font-size: 12px; font-family: var(--mono); color: var(--purple-800); }
+.upsell .check {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid var(--ink-soft);
+  display: grid; place-items: center;
+  color: transparent;
+}
+.upsell.on .check { border-color: var(--purple-800); background: var(--purple-800); color: var(--gold); }
+.gift-note-input {
+  margin-top: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  background: var(--cream);
+  outline: none;
+}
+.gift-note-input:focus { border-color: var(--purple-800); }
+
+/* ===========================================================
+   Stock urgency pips (PDP)
+   =========================================================== */
+.stock-pips {
+  display: flex; gap: 4px; align-items: center;
+  margin: 10px 0 4px;
+}
+.stock-pips .pip {
+  width: 14px; height: 4px; border-radius: 1px;
+  background: var(--gold);
+}
+.stock-pips .pip.empty { background: var(--line); }
+.stock-pips .lbl {
+  margin-left: 8px;
+  font-size: 11px; letter-spacing: .15em; text-transform: uppercase;
+  color: var(--err);
+}
+
+/* ===========================================================
+   Search dropdown (nav)
+   =========================================================== */
+.search-pop {
+  position: absolute;
+  top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  max-height: 380px; overflow-y: auto;
+}
+.nav-search { position: relative; }
+.search-row {
+  display: grid; grid-template-columns: 44px 1fr auto;
+  gap: 12px; align-items: center;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+}
+.search-row:last-child { border-bottom: none; }
+.search-row:hover { background: var(--purple-50); }
+.search-row .cmp { aspect-ratio: 1; width: 44px; }
+.search-row .nm { font-family: var(--serif); font-size: 14px; color: var(--purple-900); }
+.search-row .ct { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--gold-deep); }
+.search-row .pr { font-size: 12px; font-family: var(--mono); color: var(--ink-soft); }
+.search-empty {
+  padding: 18px 14px;
+  text-align: center;
+  font-size: 12px; letter-spacing: .15em; text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Wishlist filled state */
+.icon-btn.wished svg { fill: var(--gold); stroke: var(--gold-deep); }
+.heart-tick {
+  position: absolute; top: 12px; right: 12px;
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  background: oklch(1 0 0 / 0.85); backdrop-filter: blur(4px);
+  border-radius: 50%; cursor: pointer;
+  transition: transform .15s, background .15s;
+  z-index: 4;
+  color: var(--purple-800);
+}
+.card .heart-tick { opacity: 0; transition: opacity .2s, transform .15s; }
+.card:hover .heart-tick { opacity: 1; }
+.heart-tick:hover { transform: scale(1.1); }
+.heart-tick.on { background: var(--gold); color: var(--purple-950); opacity: 1; }
+.heart-tick.on svg { fill: currentColor; }
+
+/* ===========================================================
+   Bento — The House Atelier
+   =========================================================== */
+.bento {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 220px;
+  gap: 14px;
+}
+.bento > * { position: relative; overflow: hidden; cursor: pointer; }
+.bento .b-1 { grid-column: span 2; grid-row: span 2; }
+.bento .b-2 { grid-column: span 1; grid-row: span 2; }
+.bento .b-3 { grid-column: span 1; grid-row: span 1; }
+.bento .b-4 { grid-column: span 1; grid-row: span 1; }
+.bento .b-5 { grid-column: span 2; grid-row: span 1; }
+.bento .cmp { width: 100%; height: 100%; transition: transform .4s cubic-bezier(.2,.9,.3,1); }
+.bento > *:hover .cmp { transform: scale(1.04); }
+.bento .b-overlay {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 18px;
+  background: linear-gradient(0deg, oklch(0.10 0.08 290 / 0.7) 0%, transparent 60%);
+  color: var(--cream);
+}
+.bento .b-kicker {
+  font-size: 9px; letter-spacing: .35em; text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.bento .b-name {
+  font-family: var(--serif);
+  font-size: 22px; font-weight: 500;
+  letter-spacing: -.01em;
+  margin: 0;
+}
+.bento .b-1 .b-name { font-size: 36px; }
+.bento .b-price {
+  margin-top: 6px;
+  font-size: 12px; font-family: var(--mono);
+  letter-spacing: .1em;
+  color: var(--gold);
+}
+@media (max-width: 900px) {
+  .bento { grid-template-columns: repeat(2, 1fr); }
+  .bento .b-1 { grid-column: span 2; }
+  .bento .b-5 { grid-column: span 2; }
+}
+
+/* ===========================================================
+   Journal / atmosphere band
+   =========================================================== */
+.journal {
+  background: var(--cream);
+  padding: 100px 32px;
+  position: relative;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.journal-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 2fr;
+  gap: 80px;
+  align-items: start;
+}
+.journal-kicker {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: .4em; text-transform: uppercase;
+  color: var(--gold-deep);
+  margin-bottom: 12px;
+}
+.journal-num {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 96px; line-height: 1;
+  color: var(--purple-200);
+  margin: 0;
+}
+.journal-num small {
+  display: block;
+  font-family: var(--mono); font-style: normal;
+  font-size: 10px; letter-spacing: .3em;
+  color: var(--gold-deep);
+  margin-top: 18px;
+}
+.journal h2 {
+  font-family: var(--serif);
+  font-size: 56px; font-weight: 400;
+  line-height: 1.1; letter-spacing: -.02em;
+  color: var(--purple-900);
+  margin: 0 0 28px;
+}
+.journal h2 em { color: var(--gold-deep); }
+.journal p {
+  font-family: var(--serif);
+  font-size: 19px; line-height: 1.7;
+  color: var(--ink-soft);
+  margin: 0 0 22px;
+  max-width: 60ch;
+}
+.journal p:first-letter {
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 0.9;
+  float: left;
+  padding: 8px 12px 0 0;
+  color: var(--purple-900);
+}
+.journal-sig {
+  margin-top: 36px;
+  font-family: var(--serif);
+  font-style: italic; font-size: 22px;
+  color: var(--purple-900);
+}
+.journal-sig small {
+  display: block; margin-top: 4px;
+  font-family: var(--mono); font-style: normal;
+  font-size: 10px; letter-spacing: .3em; text-transform: uppercase;
+  color: var(--ink-soft);
+}
+@media (max-width: 900px) {
+  .journal { padding: 60px 24px; }
+  .journal-inner { grid-template-columns: 1fr; gap: 32px; }
+  .journal h2 { font-size: 38px; }
+  .journal p { font-size: 16px; }
+}
+
+/* ===========================================================
+   Press strip — "as discussed in"
+   =========================================================== */
+.press {
+  background: var(--cream);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 22px 32px;
+}
+.press-inner {
+  max-width: 1400px; margin: 0 auto;
+  display: flex; gap: 40px; align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.press-kicker {
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: .35em; text-transform: uppercase;
+  color: var(--ink-soft);
+  padding-right: 24px;
+  border-right: 1px solid var(--line);
+}
+.press-mark {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--purple-900);
+  letter-spacing: -.01em;
+  opacity: 0.7;
+  transition: opacity .2s, color .2s;
+}
+.press-mark:hover { opacity: 1; color: var(--gold-deep); }
+.press-mark sup {
+  font-family: var(--mono); font-style: normal;
+  font-size: 8px; letter-spacing: .3em;
+  margin-left: 4px;
+  vertical-align: super;
+  color: var(--gold-deep);
+}
+
+/* ===========================================================
+   Newsletter — "Letters from the Maison"
+   =========================================================== */
+.letters {
+  background:
+    radial-gradient(ellipse 60% 80% at 50% 0%, oklch(0.30 0.16 320 / 0.5), transparent 60%),
+    var(--purple-950);
+  color: var(--cream);
+  padding: 80px 32px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.letters::before {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 20% 80%, oklch(0.85 0.13 85 / 0.08), transparent 40%),
+    radial-gradient(circle at 80% 20%, oklch(0.55 0.18 320 / 0.15), transparent 50%);
+  pointer-events: none;
+}
+.letters-inner {
+  max-width: 700px; margin: 0 auto;
+  position: relative;
+}
+.letters-kicker {
+  font-family: var(--mono);
+  font-size: 10px; letter-spacing: .4em; text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 18px;
+  display: inline-flex; align-items: center; gap: 12px;
+}
+.letters-kicker::before, .letters-kicker::after {
+  content: ""; height: 1px; width: 24px;
+  background: var(--gold); opacity: 0.6;
+}
+.letters h2 {
+  font-family: var(--serif);
+  font-size: clamp(34px, 5vw, 54px);
+  font-weight: 400;
+  margin: 0 0 16px;
+  letter-spacing: -.01em;
+}
+.letters h2 em { color: var(--gold); font-style: italic; }
+.letters p {
+  color: var(--purple-200);
+  font-size: 15px; line-height: 1.7;
+  margin: 0 auto 32px;
+  max-width: 500px;
+}
+.letters-form {
+  display: flex; gap: 8px;
+  max-width: 480px; margin: 0 auto;
+  border: 1px solid oklch(0.85 0.13 85 / 0.4);
+  background: oklch(0.10 0.08 290 / 0.5);
+  padding: 4px;
+}
+.letters-form input {
+  flex: 1;
+  border: none; outline: none;
+  background: transparent;
+  color: var(--cream);
+  font-size: 14px;
+  padding: 12px 16px;
+}
+.letters-form input::placeholder { color: var(--purple-400); }
+.letters-form button {
+  background: var(--gold);
+  color: var(--purple-950);
+  padding: 10px 22px;
+  font-size: 12px; letter-spacing: .15em; text-transform: uppercase;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.letters-form button:hover { background: oklch(0.95 0.10 85); }
+.letters-thanks {
+  margin-top: 12px;
+  font-family: var(--serif); font-style: italic;
+  font-size: 16px; color: var(--gold);
+  opacity: 0; transition: opacity .4s;
+}
+.letters-thanks.in { opacity: 1; }
+
+/* ===========================================================
+   Wunderkammer — category strip on home
+   "Curiosities, by category"
+   =========================================================== */
+.wunderkammer {
+  background: var(--purple-950);
+  color: var(--cream);
+  padding: 60px 0;
+  overflow: hidden;
+  position: relative;
+}
+.wunderkammer-track {
+  display: flex; gap: 24px;
+  padding: 0 32px;
+  animation: wkScroll 50s linear infinite;
+  width: max-content;
+}
+.wunderkammer-card {
+  width: 240px; aspect-ratio: 3/4;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid oklch(0.85 0.13 85 / 0.2);
+}
+.wunderkammer-card .cmp { width: 100%; height: 100%; }
+.wunderkammer-card .wk-tag {
+  position: absolute; left: 12px; top: 12px; z-index: 5;
+  font-family: var(--mono);
+  font-size: 9px; letter-spacing: .3em; text-transform: uppercase;
+  color: var(--gold);
+  background: oklch(0 0 0 / 0.5);
+  padding: 4px 8px;
+  border: 1px solid oklch(0.85 0.13 85 / 0.3);
+}
+.wunderkammer-card .wk-name {
+  position: absolute; left: 14px; bottom: 16px; right: 14px; z-index: 5;
+  font-family: var(--serif); font-style: italic;
+  font-size: 22px; line-height: 1.1;
+  color: var(--cream);
+}
+@keyframes wkScroll {
+  to { transform: translateX(-50%); }
+}
+.wunderkammer:hover .wunderkammer-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .wunderkammer-track { animation: none; }
+}
+
+/* ===========================================================
+   Focus rings (keyboard a11y)
+   =========================================================== */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.btn:focus-visible { outline-offset: 3px; }
+.icon-btn:focus-visible { outline-offset: 1px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline-offset: 0;
+  outline-width: 1px;
+}
+
+/* Legacy .ph container sizing — keep small compositions filling their slot. */
+.admin-product-cell .cmp { width: 44px; height: 44px; flex-shrink: 0; }
+.cart-line .cmp { aspect-ratio: 3/4; }
+.pdp-thumb .cmp { width: 100%; height: 100%; }
+.pdp-main-img .cmp { width: 100%; height: 100%; }
+.cat-tile .cmp { position: absolute; inset: 0; }
+
+/* Skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  left: 0; top: 0;
+  padding: 12px 20px;
+  background: var(--purple-950);
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: .25em; text-transform: uppercase;
+  transform: translateY(-100%);
+  z-index: 9999;
+  transition: transform .15s ease;
+}
+.skip-link:focus { transform: translateY(0); }
+
+/* ─── Locale switcher ─────────────────────────────────────────────────── */
+.locale-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  margin-right: 8px;
+  height: 28px;
+  align-self: center;
+}
+.locale-switch button {
+  border: none; background: transparent;
+  padding: 0 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-right: 1px solid var(--line);
+}
+.locale-switch button:last-child { border-right: none; }
+.locale-switch button:hover:not(:disabled) { background: var(--purple-50); color: var(--purple-900); }
+.locale-switch button.is-active { background: var(--purple-900); color: white; cursor: default; }
+.locale-switch button:disabled { opacity: .6; }
+
+/* Use the same family vars for system/component fonts (Next.js fonts inject vars) */
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}

@@ -1,0 +1,54 @@
+import { getTranslations } from "next-intl/server";
+import { getVisibleSegments } from "@/lib/queries";
+import { Link } from "@/i18n/routing";
+
+export default async function Footer() {
+  const t = await getTranslations();
+  let segments: Awaited<ReturnType<typeof getVisibleSegments>> = [];
+  try {
+    segments = await getVisibleSegments();
+  } catch {
+    // DB unavailable — render fallback
+  }
+
+  return (
+    <footer className="footer">
+      <div className="footer-inner">
+        <div className="footer-grid">
+          <div>
+            <h4 style={{ fontStyle: "italic" }}>{t("brand.name")}</h4>
+            <p style={{ fontSize: 13, color: "var(--purple-200)", maxWidth: 300, lineHeight: 1.7 }}>
+              {t("brand.tagline")}
+            </p>
+          </div>
+          <div>
+            <div className="col-title">{t("footer.shop")}</div>
+            <ul>
+              {segments.slice(0, 5).map((c) => (
+                <li key={c.id}>
+                  <Link href={{ pathname: "/shop/[segment]", params: { segment: c.id } }}>{c.name}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="col-title">{t("footer.maison")}</div>
+            <ul><li>Atelier</li><li>Journal</li><li>Craftsmanship</li></ul>
+          </div>
+          <div>
+            <div className="col-title">{t("footer.service")}</div>
+            <ul><li>Shipping</li><li>Returns</li><li>Cash on Delivery</li></ul>
+          </div>
+          <div>
+            <div className="col-title">{t("footer.contact")}</div>
+            <ul><li>concierge@ssanguine.co</li></ul>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <span>© MMXXVI {t("brand.name")} Maison · {t("footer.rights")}</span>
+          <span>{t("footer.privacy")} · {t("footer.terms")} · {t("footer.accessibility")}</span>
+        </div>
+      </div>
+    </footer>
+  );
+}

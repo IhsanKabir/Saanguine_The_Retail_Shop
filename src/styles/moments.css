@@ -1,0 +1,58 @@
+/* ===== Ssanguine — Signature Moments ===== */
+
+/* Mask-reveal characters in section headings */
+.mask-char {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(100%);
+  transition: opacity .7s cubic-bezier(.2,.9,.3,1), transform .7s cubic-bezier(.2,.9,.3,1);
+}
+.mask-char.mask-in { opacity: 1; transform: none; }
+.section-hd h2 { overflow: hidden; }
+
+/* Hero fade on scroll (driven via --hero-fade) */
+.hero-inner > div:first-child { opacity: var(--hero-fade, 1); }
+
+/* Bag pulse on receive */
+.icon-btn.bag-pulse {
+  animation: bagPulse .55s cubic-bezier(.3,.7,.3,1.3);
+}
+@keyframes bagPulse {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.35); color: var(--gold); }
+  100% { transform: scale(1); }
+}
+
+/* Disable old CSS marquee animation since JS now drives it */
+.marquee-track { animation: none !important; }
+
+/* Disable old hero h1/p/btn entrance — gold dust handles h1, others remain */
+.hero h1 { animation: none !important; }
+
+/* Loupe — actually magnifies via inverted scale on backdrop */
+#ssg-cursor[data-mode="loupe"] .cur-loupe {
+  backdrop-filter: blur(0) saturate(1.4) contrast(1.1);
+}
+#ssg-cursor[data-mode="loupe"] .cur-loupe::before {
+  content: ""; position: absolute; inset: 8px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 20px oklch(0.4 0.18 300 / 0.15);
+}
+
+/* Wax seal imprint on click */
+.wax-imprint {
+  position: fixed; pointer-events: none; z-index: 9000;
+  width: 56px; height: 56px; border-radius: 50%;
+  border: 1px dashed oklch(0.85 0.12 85 / 0.4);
+  background: radial-gradient(circle at 35% 30%, oklch(0.45 0.20 25 / 0.35), oklch(0.25 0.18 25 / 0.15));
+  transform: translate(-50%,-50%) scale(0.6);
+  animation: imprintFade 1.4s ease-out forwards;
+}
+@keyframes imprintFade {
+  0% { opacity: 1; transform: translate(-50%,-50%) scale(0.6); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mask-char { opacity: 1 !important; transform: none !important; }
+}

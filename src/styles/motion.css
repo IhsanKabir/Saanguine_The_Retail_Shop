@@ -1,0 +1,390 @@
+/* ===== Ssanguine — Cursor & Motion Layer ===== */
+
+/* Hide native cursor when custom is active */
+@media (hover: hover) and (pointer: fine) {
+  body, body * { cursor: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body, body * { cursor: auto !important; }
+  #ssg-cursor-root { display: none !important; }
+}
+
+#ssg-cursor-root { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+#ssg-cursor-trail { position: fixed; inset: 0; pointer-events: none; z-index: 9998; }
+
+#ssg-cursor {
+  position: fixed; top: 0; left: 0;
+  width: 0; height: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s ease;
+  color: var(--purple-900);
+  will-change: transform;
+}
+#ssg-cursor.visible { opacity: 1; }
+
+/* Children share centered position */
+#ssg-cursor > * {
+  position: absolute;
+  top: 0; left: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s ease, transform .35s cubic-bezier(.2,.9,.3,1);
+}
+
+/* ===== Default — ring + dot ===== */
+.cur-ring {
+  width: 36px; height: 36px;
+  border: 1px solid var(--purple-900);
+  border-radius: 50%;
+}
+.cur-dot {
+  width: 4px; height: 4px;
+  background: var(--gold);
+  border-radius: 50%;
+}
+#ssg-cursor[data-mode="default"] .cur-ring,
+#ssg-cursor[data-mode="default"] .cur-dot,
+#ssg-cursor[data-mode="text"] .cur-dot { opacity: 1; }
+
+/* link hover — expand ring */
+#ssg-cursor.hover-link .cur-ring {
+  transform: translate(-50%, -50%) scale(1.4);
+  background: var(--gold);
+  border-color: var(--gold);
+  mix-blend-mode: multiply;
+}
+#ssg-cursor.hover-link .cur-dot { opacity: 0; }
+
+/* text mode — vertical I-beam */
+#ssg-cursor[data-mode="text"] .cur-ring {
+  width: 2px; height: 22px; border-radius: 0;
+  background: var(--purple-900); border: none;
+  opacity: 1;
+}
+#ssg-cursor[data-mode="text"] .cur-dot { opacity: 0; }
+
+/* ===== Hero / Inkwell ===== */
+#ssg-cursor[data-mode="inkwell"] .cur-ink { opacity: 1; }
+.cur-ink {
+  width: 14px; height: 14px;
+  background: radial-gradient(circle at 35% 30%, oklch(0.45 0.16 300), var(--purple-950));
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  box-shadow: 0 8px 12px -4px oklch(0.25 0.18 300 / 0.4);
+}
+#ssg-cursor[data-mode="inkwell"]::before {
+  content: ""; position: absolute;
+  width: 4px; height: 14px;
+  background: linear-gradient(180deg, var(--purple-900), transparent);
+  top: 6px; left: 0;
+  transform: translate(-50%, 0);
+  opacity: 0.6;
+  border-radius: 0 0 50% 50%;
+}
+
+/* ===== Magnify / Enter ===== */
+#ssg-cursor[data-mode="magnify"] .cur-ring,
+#ssg-cursor[data-mode="magnify"] .cur-enter { opacity: 1; }
+#ssg-cursor[data-mode="magnify"] .cur-ring {
+  width: 80px; height: 80px;
+  border: 1px solid var(--gold);
+  background: oklch(0.25 0.15 300 / 0.18);
+  backdrop-filter: blur(2px);
+}
+.cur-enter {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px; letter-spacing: .25em;
+  color: var(--gold);
+  font-weight: 500;
+}
+
+/* ===== Loupe (PDP) ===== */
+#ssg-cursor[data-mode="loupe"] .cur-loupe { opacity: 1; }
+.cur-loupe {
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  border: 2px solid var(--gold);
+  background: oklch(0.95 0.02 300 / 0.4);
+  backdrop-filter: blur(0px) saturate(1.2);
+  box-shadow: 0 8px 30px oklch(0.2 0.18 300 / 0.4), inset 0 0 0 1px oklch(1 0 0 / 0.3);
+}
+.cur-loupe::after {
+  content: ""; position: absolute;
+  width: 22px; height: 3px;
+  background: var(--gold);
+  top: 100%; left: 80%;
+  transform: rotate(45deg);
+  transform-origin: left center;
+  border-radius: 2px;
+}
+
+/* ===== Wax Seal (checkout) ===== */
+#ssg-cursor[data-mode="seal"] .cur-seal { opacity: 1; }
+.cur-seal {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, oklch(0.45 0.20 25), oklch(0.25 0.18 25));
+  display: grid; place-items: center;
+  color: var(--gold);
+  font-family: "Cormorant Garamond", serif;
+  font-style: italic; font-weight: 600; font-size: 22px;
+  box-shadow: 0 6px 14px -2px oklch(0.2 0.2 25 / 0.5), inset 0 -2px 4px oklch(0 0 0 / 0.3), inset 0 2px 4px oklch(1 0 0 / 0.15);
+}
+.cur-seal::before {
+  content: ""; position: absolute; inset: 5px;
+  border: 1px dashed oklch(0.85 0.12 85 / 0.5);
+  border-radius: 50%;
+}
+#ssg-cursor[data-mode="seal"].down .cur-seal {
+  transform: translate(-50%, -50%) scale(0.92);
+  filter: brightness(0.9);
+}
+
+/* ===== Crosshair (product grid) ===== */
+#ssg-cursor[data-mode="crosshair"] .cur-cross { opacity: 1; color: var(--purple-800); }
+#ssg-cursor[data-mode="crosshair"].hover-link .cur-cross { color: var(--gold); transform: translate(-50%, -50%) scale(1.3); }
+
+/* ===== Watches — sweeping hand ===== */
+#ssg-cursor[data-mode="watches"] .cur-ring { opacity: 1; width: 44px; height: 44px; border-color: var(--gold-deep); }
+#ssg-cursor[data-mode="watches"]::after {
+  content: "";
+  position: absolute;
+  width: 1px; height: 22px;
+  background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+  left: 0; top: 0;
+  transform: translate(-50%, -100%) rotate(var(--ang, 0deg));
+  transform-origin: bottom center;
+  opacity: 1;
+}
+#ssg-cursor[data-mode="watches"] .cur-dot { opacity: 1; background: var(--gold); }
+
+/* ===== Anime — angular reticle ===== */
+#ssg-cursor[data-mode="anime"]::before,
+#ssg-cursor[data-mode="anime"]::after {
+  content: ""; position: absolute;
+  width: 26px; height: 26px;
+  border: 2px solid var(--purple-900);
+  opacity: 1;
+  transform-origin: center;
+}
+#ssg-cursor[data-mode="anime"]::before {
+  border-right: none; border-bottom: none;
+  transform: translate(-100%, -100%);
+  top: -4px; left: -4px;
+}
+#ssg-cursor[data-mode="anime"]::after {
+  border-left: none; border-top: none;
+  transform: translate(0%, 0%);
+  top: 4px; left: 4px;
+}
+#ssg-cursor[data-mode="anime"] .cur-dot { opacity: 1; background: var(--purple-900); }
+
+/* ===== Jewelry — sparkle ===== */
+#ssg-cursor[data-mode="jewelry"] .cur-sparkle { opacity: 1; color: var(--gold); animation: sparkleSpin 3s linear infinite; }
+@keyframes sparkleSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+#ssg-cursor[data-mode="jewelry"].down .cur-sparkle { transform: translate(-50%, -50%) scale(1.6); }
+
+/* ===== Admin — precision crosshair + HUD ===== */
+#ssg-cursor[data-mode="admin"] .cur-cross { opacity: 1; color: var(--gold); }
+#ssg-cursor[data-mode="admin"] .cur-hud { opacity: 1; }
+.cur-hud {
+  position: absolute;
+  top: 18px; left: 18px;
+  transform: translate(0, 0);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px; letter-spacing: .15em;
+  color: var(--gold);
+  background: oklch(0.18 0.08 300 / 0.85);
+  padding: 3px 7px;
+  border: 1px solid var(--gold);
+  white-space: nowrap;
+}
+
+/* ===== Floating label ===== */
+.cur-label {
+  position: absolute;
+  top: 30px; left: 30px;
+  transform: translate(0, 0);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px; letter-spacing: .25em;
+  color: var(--purple-900);
+  background: var(--gold);
+  padding: 4px 8px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  font-weight: 500;
+  opacity: 0;
+}
+#ssg-cursor.hover-link .cur-label { opacity: 1 !important; }
+#ssg-cursor[data-mode="seal"] .cur-label,
+#ssg-cursor[data-mode="loupe"] .cur-label,
+#ssg-cursor[data-mode="magnify"] .cur-label { display: none; }
+
+/* ===== Page transition curtain ===== */
+.ssg-curtain {
+  position: fixed; inset: 0;
+  background: linear-gradient(180deg, var(--purple-950), var(--purple-900));
+  z-index: 9000;
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform .4s cubic-bezier(.7, 0, .3, 1);
+  pointer-events: none;
+}
+.ssg-curtain.in { transform: scaleY(1); }
+.ssg-curtain.out { transform-origin: bottom; transform: scaleY(0); }
+.ssg-curtain::after {
+  content: "";
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0; transition: opacity .25s;
+}
+.ssg-curtain.in::after { opacity: 1; }
+
+/* ===== Scroll reveal ===== */
+[data-reveal] {
+  opacity: 0; transform: translateY(30px);
+  transition: opacity .8s cubic-bezier(.2, .8, .3, 1), transform .8s cubic-bezier(.2, .8, .3, 1);
+}
+[data-reveal="rise"] { transform: translateY(40px); }
+[data-reveal="fade"] { transform: none; }
+[data-reveal="left"] { transform: translateX(-30px); }
+[data-reveal="right"] { transform: translateX(30px); }
+[data-reveal-delay="1"] { transition-delay: .08s; }
+[data-reveal-delay="2"] { transition-delay: .16s; }
+[data-reveal-delay="3"] { transition-delay: .24s; }
+[data-reveal-delay="4"] { transition-delay: .32s; }
+[data-reveal-delay="5"] { transition-delay: .40s; }
+[data-reveal-delay="6"] { transition-delay: .48s; }
+.reveal-in { opacity: 1 !important; transform: none !important; }
+
+/* Theatrical: ornament line draws on reveal */
+.ornament-rule {
+  position: relative;
+  height: 1px;
+  background: var(--gold);
+  width: 60px; margin: 16px 0;
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform .9s cubic-bezier(.7, 0, .3, 1) .2s;
+}
+.reveal-in .ornament-rule, [data-reveal].reveal-in.ornament-rule { transform: scaleX(1); }
+
+/* ===== Card tilt (3D) ===== */
+.card, .cat-tile {
+  transition: transform .3s cubic-bezier(.2, .8, .3, 1), box-shadow .3s, border-color .3s;
+  transform-style: preserve-3d;
+}
+.card:hover {
+  transform: perspective(900px) rotateX(var(--tilt-x, 0)) rotateY(var(--tilt-y, 0)) translateZ(8px);
+}
+.cat-tile:hover {
+  transform: perspective(1000px) rotateX(var(--tilt-x, 0)) rotateY(var(--tilt-y, 0)) translateZ(10px);
+}
+
+/* Hero text — letter shimmer */
+.hero h1 em {
+  background: linear-gradient(120deg, var(--gold) 30%, oklch(0.95 0.1 85) 50%, var(--gold) 70%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 4s ease-in-out infinite;
+}
+@keyframes shimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+/* Marquee strip */
+.marquee {
+  background: var(--purple-950);
+  color: var(--gold);
+  padding: 18px 0;
+  overflow: hidden;
+  border-top: 1px solid oklch(0.4 0.18 300);
+  border-bottom: 1px solid oklch(0.4 0.18 300);
+}
+.marquee-track {
+  display: flex; gap: 64px;
+  animation: marquee 32s linear infinite;
+  white-space: nowrap;
+  font-family: "Cormorant Garamond", serif;
+  font-style: italic;
+  font-size: 28px;
+  font-weight: 400;
+  width: max-content;
+}
+.marquee-track span { display: inline-flex; align-items: center; gap: 24px; }
+.marquee-track span::after {
+  content: "✦";
+  color: var(--gold);
+  font-style: normal;
+  font-size: 14px;
+}
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+/* Hero gold rule animates in */
+.hero-kicker::before, .hero-kicker::after {
+  animation: drawLine 1.4s cubic-bezier(.7,0,.3,1) .2s both;
+  transform-origin: left;
+}
+@keyframes drawLine { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Hero h1 entrance */
+.hero h1 { animation: heroRise 1.2s cubic-bezier(.2,.9,.3,1) .15s both; }
+.hero p, .hero .btn { animation: heroRise 1s cubic-bezier(.2,.9,.3,1) .5s both; }
+@keyframes heroRise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+
+/* Hero visual — slow pan */
+.hero-visual {
+  animation: heroPan 18s ease-in-out infinite alternate;
+}
+@keyframes heroPan {
+  from { transform: scale(1) translate(0, 0); }
+  to   { transform: scale(1.04) translate(-10px, -8px); }
+}
+
+/* Section heading underline draws */
+.section-hd { position: relative; }
+.section-hd[data-reveal].reveal-in::after {
+  animation: drawSection 1.2s cubic-bezier(.7,0,.3,1) .3s both;
+}
+
+/* Toast — wax-stamp */
+.toast {
+  animation: stampIn .35s cubic-bezier(.2, 1.6, .3, 1) !important;
+}
+@keyframes stampIn {
+  0%   { transform: translate(-50%, 30px) scale(1.4); opacity: 0; }
+  60%  { transform: translate(-50%, 0) scale(0.94); opacity: 1; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+}
+
+/* Buttons — magnetic readiness + arrow nudge */
+.btn { transition: transform .3s cubic-bezier(.2, .8, .3, 1), background .15s, color .15s, border-color .15s; }
+.btn svg { transition: transform .25s cubic-bezier(.2, .8, .3, 1); }
+.btn:hover svg { transform: translateX(4px); }
+
+/* Cat-tile gold border trace on hover */
+.cat-tile { position: relative; }
+.cat-tile::before {
+  content: "";
+  position: absolute; inset: 0; z-index: 3;
+  border: 1px solid transparent;
+  pointer-events: none;
+  transition: border-color .3s;
+}
+.cat-tile:hover::before { border-color: var(--gold); }
+
+/* Hide cursor on admin from custom cursor's perspective — admin uses HUD mode */
+
+/* Preference: reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
+  .marquee-track { animation: none; }
+  .hero-visual { animation: none; }
+  .hero h1, .hero p, .hero .btn { animation: none; }
+  .cur-sparkle { animation: none; }
+}

@@ -1,0 +1,44 @@
+/* ===== Mobile motion language ===== */
+.tap-burst {
+  position: fixed; pointer-events: none; z-index: 9500;
+  width: 60px; height: 60px; border-radius: 50%;
+  border: 1px solid var(--gold);
+  transform: translate(-50%, -50%) scale(0);
+  animation: tapBurst .55s ease-out forwards;
+}
+@keyframes tapBurst {
+  0% { transform: translate(-50%,-50%) scale(0); opacity: .9; }
+  100% { transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  /* Tactile feedback */
+  .btn, .card, .cat-tile, .swatch, .filter-pill {
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .12s cubic-bezier(.2,.9,.3,1);
+  }
+  .btn:active, .swatch:active, .filter-pill:active { transform: scale(0.95); }
+  .card:active { transform: scale(0.98); }
+  .cat-tile:active { transform: scale(0.97); }
+
+  /* Momentum scroll on horizontal rails */
+  .marquee, .swatch-row, .filter-bar {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  /* Hide custom cursor */
+  .ssg-cursor, .ssg-idle { display: none !important; }
+}
+
+/* Drawer swipe-to-dismiss visual */
+.cart-drawer.dragging { transition: none !important; }
+.cart-drawer .drawer-handle {
+  display: none;
+  width: 40px; height: 4px; border-radius: 2px;
+  background: oklch(0.85 0.13 85 / 0.4);
+  margin: 12px auto 8px;
+}
+@media (max-width: 720px) {
+  .cart-drawer .drawer-handle { display: block; }
+  .cart-drawer { touch-action: pan-y; }
+}
