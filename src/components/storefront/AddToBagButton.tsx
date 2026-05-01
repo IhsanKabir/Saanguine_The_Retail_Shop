@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useCart, type CartItem } from "@/lib/cart-context";
 import { useLocale, useTranslations } from "next-intl";
 import { formatBdt } from "@/lib/utils";
+import { track } from "@/lib/actions/track";
 import Icon from "./Icon";
 
 type Props = {
