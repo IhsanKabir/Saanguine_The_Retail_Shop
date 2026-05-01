@@ -68,7 +68,17 @@ export async function createCodOrder(input: CreateOrderInput) {
   const products = await db.select().from(schema.products).where(inArray(schema.products.id, productIds));
   const byId = new Map(products.map((p) => [p.id, p]));
 
-  const lines = [];
+  type OrderLine = {
+    productId: string;
+    nameSnapshot: string;
+    skuSnapshot: string;
+    color: string | null;
+    size: string | null;
+    qty: number;
+    unitPriceBdt: number;
+    lineTotalBdt: number;
+  };
+  const lines: OrderLine[] = [];
   let subtotal = 0;
   for (const item of data.items) {
     const p = byId.get(item.productId);
