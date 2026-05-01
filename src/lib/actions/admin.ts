@@ -4,7 +4,9 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/lib/db";
 import { eq, desc, sql } from "drizzle-orm";
-import { requireAdmin } from "@/lib/auth-utils";
+import { createClient } from "@supabase/supabase-js";
+import { requireAdmin, requirePermission } from "@/lib/auth-utils";
+import { PERMISSIONS, type Permission, type AdminRole } from "@/lib/permissions";
 import { slugify } from "@/lib/utils";
 import { createPathaoOrder } from "@/lib/shipping/pathao";
 import { createSteadfastOrder } from "@/lib/shipping/steadfast";
@@ -296,4 +298,118 @@ export async function updateBrand(input: z.infer<typeof brandSchema>) {
 export async function getBrand() {
   const rows = await db.select().from(schema.siteSettings).where(eq(schema.siteSettings.key, "brand"));
   return (rows[0]?.value as z.infer<typeof brandSchema>) || null;
+}
+
+// ─── Admin user management (owner only) ───────────────────────────────
+function adminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+}
+
+const subadminInputSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(["owner", "admin", "subadmin"]),
+  permissions: z.array(z.enum(PERMISSIONS)).default([]),
+});
+
+export type AdminUserSummary = {
+  id: string;
+  email: string;
+  role: AdminRole;
+  permissions: Permission[];
+  createdAt: string;
+  lastSignInAt: string | null;
+};
+
+export async function listAdminUsers(): Promise<AdminUserSummary[]> {
+  await requirePermission("users");
+  const sb = adminClient();
+  const all: AdminUserSummary[] = [];
+  let page = 1;
+  for (;;) {
+    const { data, error } = await sb.auth.admin.listUsers({ page, perPage: 100 });
+    if (error) throw error;
+    for (const u of data.users) {
+      const meta = (u.app_metadata ?? {}) as { role?: AdminRole; permissions?: Permission[] };
+      const role: AdminRole = meta.role && ["owner", "admin", "subadmin"].includes(meta.role) ? meta.role : "customer";
+      if (role === "customer") continue; // only show admin-tier users
+      all.push({
+        id: u.id,
+        email: u.email ?? "",
+        role,
+        permissions: meta.permissions ?? [],
+        createdAt: u.created_at,
+        lastSignInAt: u.last_sign_in_at ?? null,
+      });
+    }
+    if (data.users.length < 100) break;
+    page++;
+  }
+  return all;
+}
+
+export async function inviteAdminUser(input: z.infer<typeof subadminInputSchema>) {
+  await requirePermission("users");
+  const data = subadminInputSchema.parse(input);
+  const sb = adminClient();
+  const { data: existing } = await sb.auth.admin.listUsers();
+  const found = existing.users.find((u) => u.email?.toLowerCase() === data.email.toLowerCase());
+  const appMeta = data.role === "subadmin"
+    ? { role: data.role, permissions: data.permissions }
+    : { role: data.role };
+  if (found) {
+    await sb.auth.admin.updateUserById(found.id, {
+      password: data.password,
+      email_confirm: true,
+      app_metadata: { ...found.app_metadata, ...appMeta },
+    });
+  } else {
+    await sb.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      app_metadata: appMeta,
+    });
+  }
+  revalidatePath("/admin/users", "page");
+  return { ok: true as const };
+}
+
+export async function updateAdminUser(id: string, patch: { role?: AdminRole; permissions?: Permission[] }) {
+  await requirePermission("users");
+  const sb = adminClient();
+  const { data: { user }, error: getErr } = await sb.auth.admin.getUserById(id);
+  if (getErr || !user) throw new Error("User not found");
+  const meta = (user.app_metadata ?? {}) as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...meta };
+  if (patch.role !== undefined) next.role = patch.role;
+  if (patch.permissions !== undefined) next.permissions = patch.permissions;
+  await sb.auth.admin.updateUserById(id, { app_metadata: next });
+  revalidatePath("/admin/users", "page");
+  return { ok: true as const };
+}
+
+export async function demoteAdminUser(id: string) {
+  await requirePermission("users");
+  const sb = adminClient();
+  const { data: { user } } = await sb.auth.admin.getUserById(id);
+  if (!user) throw new Error("User not found");
+  const meta = (user.app_metadata ?? {}) as Record<string, unknown>;
+  delete meta.role;
+  delete meta.permissions;
+  await sb.auth.admin.updateUserById(id, { app_metadata: meta });
+  revalidatePath("/admin/users", "page");
+  return { ok: true as const };
+}
+
+export async function deleteAdminUser(id: string) {
+  await requirePermission("users");
+  const sb = adminClient();
+  await sb.auth.admin.deleteUser(id);
+  revalidatePath("/admin/users", "page");
+  return { ok: true as const };
 }

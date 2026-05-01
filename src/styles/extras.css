@@ -1,0 +1,234 @@
+/* ─── Saanguine — extras (floating chat, cookie banner, legal, tracking) ─── */
+
+/* Floating chat (WhatsApp + Messenger) */
+.floating-chat {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fc-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: white;
+  text-decoration: none;
+  box-shadow: 0 6px 20px -4px rgba(40, 20, 80, .35);
+  transition: transform .18s cubic-bezier(.2, .7, .2, 1), box-shadow .18s;
+  position: relative;
+}
+.fc-btn:hover { transform: scale(1.08); box-shadow: 0 10px 28px -4px rgba(40, 20, 80, .45); }
+.fc-whatsapp  { background: #25d366; }
+.fc-messenger { background: #0084ff; }
+.fc-tooltip {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--purple-950);
+  color: var(--cream);
+  padding: 6px 10px;
+  font-size: 11px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  font-family: var(--mono);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+}
+.fc-btn:hover .fc-tooltip { opacity: 1; }
+@media (max-width: 640px) {
+  .floating-chat { right: 16px; bottom: 16px; }
+  .fc-btn { width: 48px; height: 48px; }
+  .fc-tooltip { display: none; }
+}
+
+/* Cookie consent banner */
+.cookie-banner {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+  background: var(--purple-950);
+  color: var(--cream);
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: center;
+  z-index: 95;
+  box-shadow: 0 16px 40px -10px rgba(20, 10, 50, .5);
+  animation: cookieSlideUp .35s cubic-bezier(.2, .7, .2, 1);
+}
+.cookie-banner .cb-text {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.cookie-banner .cb-text b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 15px;
+  margin-bottom: 4px;
+  color: var(--gold);
+}
+.cookie-banner .cb-text a {
+  color: var(--gold);
+  text-decoration: underline;
+}
+.cookie-banner .cb-actions {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+.cookie-banner .btn-ghost {
+  border-color: var(--purple-700);
+  color: var(--purple-200);
+}
+@keyframes cookieSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 640px) {
+  .cookie-banner {
+    grid-template-columns: 1fr;
+    bottom: 8px;
+    padding: 14px 16px;
+  }
+  .cookie-banner .cb-actions {
+    width: 100%;
+  }
+  .cookie-banner .cb-actions button {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cookie-banner { animation: none; }
+}
+
+/* Legal pages */
+.legal-page {
+  max-width: 720px;
+  margin: 60px auto 100px;
+  padding: 0 32px;
+}
+.legal-kicker {
+  font-size: 11px;
+  letter-spacing: .35em;
+  color: var(--gold-deep);
+  margin-bottom: 12px;
+}
+.legal-page h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 48px;
+  color: var(--purple-900);
+  line-height: 1.1;
+  margin: 0 0 8px;
+}
+.legal-page .legal-lede {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-family: var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin: 0 0 36px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.legal-page h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 24px;
+  color: var(--purple-900);
+  margin: 36px 0 12px;
+}
+.legal-page p, .legal-page ul {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--purple-950);
+  margin: 0 0 16px;
+}
+.legal-page ul {
+  padding-left: 22px;
+}
+.legal-page li {
+  margin-bottom: 6px;
+}
+.legal-page a {
+  color: var(--purple-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Order tracking timeline */
+.track-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  padding: 8px 0;
+}
+.track-timeline::before {
+  content: "";
+  position: absolute;
+  left: 19px;
+  top: 30px;
+  bottom: 30px;
+  width: 1px;
+  background: var(--line);
+}
+.track-step {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 16px;
+  padding: 14px 0;
+  align-items: start;
+  position: relative;
+}
+.track-marker {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--purple-50);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  display: grid;
+  place-items: center;
+  position: relative;
+  z-index: 1;
+  transition: background .25s, color .25s, border-color .25s;
+}
+.track-step.reached .track-marker {
+  background: oklch(0.94 0.05 145);
+  color: oklch(0.42 0.14 145);
+  border-color: oklch(0.65 0.12 145);
+}
+.track-step.current .track-marker {
+  background: var(--purple-900);
+  color: var(--gold);
+  border-color: var(--purple-900);
+  box-shadow: 0 0 0 6px oklch(0.42 0.18 300 / .15);
+}
+.track-label {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--purple-900);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.track-step:not(.reached) .track-label {
+  color: var(--ink-soft);
+}
+.track-desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}

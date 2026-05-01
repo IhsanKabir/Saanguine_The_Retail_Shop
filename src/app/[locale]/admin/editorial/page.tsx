@@ -1,7 +1,9 @@
 import { getBrand } from "@/lib/actions/admin";
 import EditorialClient from "./EditorialClient";
+import { requirePermission } from "@/lib/auth-utils";
 
 export default async function AdminEditorialPage() {
+  await requirePermission("editorial");
   const brand = await getBrand();
   return (
     <EditorialClient initial={brand || {

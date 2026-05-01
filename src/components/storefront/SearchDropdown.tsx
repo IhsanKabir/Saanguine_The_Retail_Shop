@@ -50,7 +50,7 @@ export default function SearchDropdown() {
 
   const onPick = (slug: string) => {
     setOpen(false); setQ("");
-    router.push({ pathname: "/product/[slug]", params: { slug } });
+    router.push(`/product/${slug}`);
   };
 
   return (

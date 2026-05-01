@@ -25,7 +25,7 @@ export default async function TopNav() {
           <div className="nav-left">
             <Link href="/" className="nav-link">{t("nav.maison")}</Link>
             {segments[0] && (
-              <Link href={{ pathname: "/shop/[segment]", params: { segment: segments[0].id } }} className="nav-link">
+              <Link href={`/shop/${segments[0].id}`} className="nav-link">
                 {t("nav.boutique")}
               </Link>
             )}
@@ -51,7 +51,7 @@ export default async function TopNav() {
             {segments.map((c) => (
               <Link
                 key={c.id}
-                href={{ pathname: "/shop/[segment]", params: { segment: c.id } }}
+                href={`/shop/${c.id}`}
                 className="cat-chip"
               >
                 {c.name}

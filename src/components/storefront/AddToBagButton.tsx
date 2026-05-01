@@ -23,6 +23,12 @@ export default function AddToBagButton({ product, colors = [], sizes = [] }: Pro
 
   const onAdd = () => {
     add({ ...product, qty, color: color || null, size: size || null });
+    track({
+      type: "add_to_cart",
+      productId: product.productId,
+      payload: { qty, color, size, priceBdt: product.priceBdt },
+      path: window.location.pathname,
+    }).catch(() => {});
     setAdded(true);
     setTimeout(() => setAdded(false), 1400);
   };

@@ -2,8 +2,11 @@ import { db, schema } from "@/lib/db";
 import { desc, eq, sql } from "drizzle-orm";
 import { formatBdt, formatDate } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
+import { requirePermission } from "@/lib/auth-utils";
 
 export default async function AdminDashboard() {
+  const ctx = await requirePermission("dashboard");
+  const canSeeRevenue = ctx.has("revenue");
   // Aggregate KPIs from real data
   const [{ count: orderCount = 0 } = { count: 0 }] = await db.select({ count: sql<number>`count(*)::int` }).from(schema.orders).catch(() => [{ count: 0 }] as never);
   const [{ revenue = 0 } = { revenue: 0 }] = await db.select({ revenue: sql<number>`coalesce(sum(${schema.orders.totalBdt}), 0)::int` }).from(schema.orders).catch(() => [{ revenue: 0 }] as never);
@@ -30,10 +33,12 @@ export default async function AdminDashboard() {
       <p className="admin-sub">Soft-launch dashboard · COD-only · {formatDate(new Date())}</p>
 
       <div className="stat-grid">
-        <div className="stat kpi">
-          <div className="kpi-top"><div className="k">Revenue · all time</div></div>
-          <div className="v">{formatBdt(revenue)}</div>
-        </div>
+        {canSeeRevenue && (
+          <div className="stat kpi">
+            <div className="kpi-top"><div className="k">Revenue · all time</div></div>
+            <div className="v">{formatBdt(revenue)}</div>
+          </div>
+        )}
         <div className="stat kpi">
           <div className="kpi-top"><div className="k">Orders · all time</div></div>
           <div className="v">{orderCount}</div>
@@ -59,14 +64,14 @@ export default async function AdminDashboard() {
           ) : (
             <div className="table" style={{ border: "none" }}>
               <table>
-                <thead><tr><th>Order</th><th>Total</th><th>Status</th><th>Date</th></tr></thead>
+                <thead><tr><th>Order</th>{canSeeRevenue && <th>Total</th>}<th>Status</th><th>Date</th></tr></thead>
                 <tbody>
                   {recent.map((o) => (
                     <tr key={o.id}>
                       <td style={{ fontFamily: "var(--mono)" }}>
-                        <Link href={{ pathname: "/admin/orders", params: {} } as never}>{o.number}</Link>
+                        <Link href="/admin/orders">{o.number}</Link>
                       </td>
-                      <td>{formatBdt(o.totalBdt)}</td>
+                      {canSeeRevenue && <td>{formatBdt(o.totalBdt)}</td>}
                       <td>
                         <span className={"pill " + (o.status === "delivered" ? "pill-ok" : o.status === "shipped" ? "pill-info" : o.status === "cancelled" ? "pill-err" : "pill-warn")}>
                           {o.status}

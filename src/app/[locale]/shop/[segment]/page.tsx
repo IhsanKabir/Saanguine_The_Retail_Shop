@@ -27,7 +27,7 @@ export default async function SegmentPage({ params }: Props) {
         <span>Boutique</span>
         <span className="current">{name}</span>
       </div>
-      <section className="section" style={{ paddingTop: 28 }}>
+      <section className="section" style={{ paddingTop: 28 }} data-cursor={(({ clothing: "magnify", accessories: "magnify", perfume: "perfume", jewelry: "jewelry", flowers: "flowers", watches: "watches", books: "inkwell" } as Record<string, string>)[segment] || "crosshair")}>
         <div style={{ marginBottom: 36, paddingBottom: 24, borderBottom: "1px solid var(--line)" }}>
           <div style={{ fontSize: 11, letterSpacing: ".3em", color: "var(--gold-deep)", marginBottom: 8 }}>
             {tag.toUpperCase()}

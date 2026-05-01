@@ -1,6 +1,27 @@
 import type { Metadata } from "next";
+import { Inter, Cormorant_Garamond, JetBrains_Mono } from "next/font/google";
+import "./globals.css";
 
 const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine.vercel.app";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+const cormorant = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-serif",
+  display: "swap",
+});
+const jbMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE),
@@ -22,5 +43,11 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  // Default lang="en"; the LocaleLayout below patches document.documentElement.lang
+  // to match the active locale on each render via a tiny client effect.
+  return (
+    <html lang="en" className={`${inter.variable} ${cormorant.variable} ${jbMono.variable}`} suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
+    </html>
+  );
 }

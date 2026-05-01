@@ -60,7 +60,7 @@ export default function CartDrawer() {
                   <div key={k} className="cart-line">
                     <Composition cat={i.cat} sku={i.sku} name={i.name} small style={{ aspectRatio: "3/4" }} />
                     <div>
-                      <Link href={{ pathname: "/product/[slug]", params: { slug: i.slug } }} className="name" onClick={closeDrawer}>
+                      <Link href={`/product/${i.slug}`} className="name" onClick={closeDrawer}>
                         {i.name}
                       </Link>
                       <div className="meta">{i.color || ""}{i.size ? ` · ${i.size}` : ""}</div>

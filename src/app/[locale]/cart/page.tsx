@@ -48,7 +48,7 @@ export default function CartPage() {
               <div key={k} className="cart-line" style={{ background: "white", padding: 16, marginBottom: 12, border: "1px solid var(--line)" }}>
                 <Composition cat={i.cat} sku={i.sku} name={i.name} small style={{ aspectRatio: "3/4" }} />
                 <div>
-                  <Link href={{ pathname: "/product/[slug]", params: { slug: i.slug } }} className="name">{i.name}</Link>
+                  <Link href={`/product/${i.slug}`} className="name">{i.name}</Link>
                   <div className="meta">{i.color || ""}{i.size ? ` · ${i.size}` : ""}</div>
                   <div className="qty" style={{ transform: "scale(.85)", transformOrigin: "left", marginTop: 10 }}>
                     <button onClick={() => dec(k)} aria-label="Decrease">−</button>

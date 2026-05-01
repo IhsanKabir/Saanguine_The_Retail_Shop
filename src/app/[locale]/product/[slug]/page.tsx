@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { getProductBySlug, getSegmentBySlug, getRelatedProducts } from "@/lib/queries";
+import { trackEvent } from "@/lib/events";
 import { Link } from "@/i18n/routing";
 import { formatBdt } from "@/lib/utils";
 import Composition from "@/components/storefront/Composition";
@@ -37,6 +38,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProductPage({ params }: Props) {
+  const { slug: slugForEvent } = await params;
+  trackEvent({ type: "product_view", productId: slugForEvent, path: `/product/${slugForEvent}` }).catch(() => {});
   const { locale, slug } = await params;
   setRequestLocale(locale);
   const t = await getTranslations();
@@ -79,13 +82,13 @@ export default async function ProductPage({ params }: Props) {
       <div className="crumbs">
         <Link href="/">Maison</Link>
         {seg && (
-          <Link href={{ pathname: "/shop/[segment]", params: { segment: seg.id } }}>
+          <Link href={`/shop/${seg.id}`}>
             {segName}
           </Link>
         )}
         <span className="current">{name}</span>
       </div>
-      <section className="pdp">
+      <section className="pdp" data-cursor="loupe">
         <div className="pdp-gallery">
           <div className="pdp-thumbs">
             {[0, 1, 2, 3].map((i) => (

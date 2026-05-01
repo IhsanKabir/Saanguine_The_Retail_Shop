@@ -16,7 +16,7 @@ export default function ProductCard({ product: p, segmentTag }: Props) {
 
   return (
     <article className="card">
-      <Link href={{ pathname: "/product/[slug]", params: { slug: p.slug } }}>
+      <Link href={`/product/${p.slug}`}>
         <div style={{ position: "relative" }}>
           <Composition
             cat={p.segmentId || "clothing"}

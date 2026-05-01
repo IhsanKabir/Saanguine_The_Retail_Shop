@@ -1,0 +1,119 @@
+import { notFound } from "next/navigation";
+import { db, schema } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { formatBdt, formatDate } from "@/lib/utils";
+import { Link } from "@/i18n/routing";
+import Icon from "@/components/storefront/Icon";
+
+const TIMELINE = [
+  { status: "pending",        label: "Order received", desc: "Atelier has received your order and is preparing the piece." },
+  { status: "cod_pending",    label: "Awaiting fulfilment", desc: "Cash-on-Delivery order. We are arranging your courier." },
+  { status: "paid",           label: "Payment confirmed", desc: "Payment received. Preparing dispatch." },
+  { status: "processing",     label: "Preparing", desc: "Wax-sealing the parcel." },
+  { status: "shipped",        label: "On its way", desc: "The courier has the parcel." },
+  { status: "delivered",      label: "Delivered", desc: "We hope it brings you joy." },
+] as const;
+
+const STATUS_INDEX: Record<string, number> = {
+  pending: 0, cod_pending: 1, paid: 2, processing: 3, shipped: 4, delivered: 5,
+};
+
+export default async function OrderTrackPage({ params }: { params: Promise<{ number: string; locale: string }> }) {
+  const { number } = await params;
+  const orders = await db.select().from(schema.orders).where(eq(schema.orders.number, number)).limit(1).catch(() => []);
+  const order = orders[0];
+  if (!order) notFound();
+
+  const lines = await db.select().from(schema.orderLines).where(eq(schema.orderLines.orderId, order.id)).catch(() => []);
+  const addr = order.shippingAddress as { fullName: string; phone: string; line1: string; area?: string; city: string; postcode?: string };
+
+  if (order.status === "cancelled" || order.status === "refunded") {
+    return (
+      <section className="section" style={{ maxWidth: 720 }}>
+        <div className="crumbs"><Link href="/">Maison</Link><span className="current">Order {number}</span></div>
+        <div className="empty-state">
+          <Icon name="x" size={36}/>
+          <h3>Order {order.status}</h3>
+          <p>This order is no longer active. If you have questions, write to us at <a href="mailto:concierge@saanguine.com">concierge@saanguine.com</a>.</p>
+        </div>
+      </section>
+    );
+  }
+
+  const currentIdx = STATUS_INDEX[order.status] ?? 0;
+
+  return (
+    <section className="section" style={{ maxWidth: 760 }}>
+      <div className="crumbs">
+        <Link href="/">Maison</Link>
+        <span className="current">Order {number}</span>
+      </div>
+
+      <div style={{ marginBottom: 32, paddingBottom: 20, borderBottom: "1px solid var(--line)" }}>
+        <div style={{ fontSize: 11, letterSpacing: ".3em", color: "var(--gold-deep)", marginBottom: 8 }}>YOUR ORDER</div>
+        <h1 className="serif" style={{ fontSize: 56, margin: 0, color: "var(--purple-900)", fontWeight: 400, fontFamily: "var(--serif)" }}>
+          {number}
+        </h1>
+        <p style={{ fontSize: 14, color: "var(--ink-soft)", marginTop: 12 }}>
+          Placed {order.createdAt ? formatDate(order.createdAt) : "—"} · {formatBdt(order.totalBdt)} · {order.paymentMethod === "cod" ? "Cash on Delivery" : order.paymentMethod}
+        </p>
+      </div>
+
+      <div className="track-timeline">
+        {TIMELINE.map((step, i) => {
+          const reached = i <= currentIdx;
+          const isCurrent = i === currentIdx;
+          return (
+            <div key={step.status} className={"track-step " + (reached ? "reached " : "") + (isCurrent ? "current" : "")}>
+              <div className="track-marker">
+                {reached ? <Icon name="check" size={14} /> : <span style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{String(i + 1).padStart(2, "0")}</span>}
+              </div>
+              <div className="track-body">
+                <div className="track-label">{step.label}</div>
+                <div className="track-desc">{step.desc}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {order.shippingCourier && order.shippingTracking && (
+        <div className="panel" style={{ marginTop: 24, padding: 20, background: "var(--purple-50)" }}>
+          <div className="pdp-label">Courier</div>
+          <div style={{ fontWeight: 500, marginTop: 4, textTransform: "capitalize" }}>{order.shippingCourier}</div>
+          <div className="pdp-label" style={{ marginTop: 12 }}>Tracking code</div>
+          <div className="mono" style={{ fontSize: 14, marginTop: 4 }}>{order.shippingTracking}</div>
+        </div>
+      )}
+
+      <div className="panel" style={{ marginTop: 24, padding: 20 }}>
+        <div className="pdp-label">Delivering to</div>
+        <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.6, color: "var(--purple-900)" }}>
+          {addr.fullName}<br/>{addr.line1}<br/>{addr.area ? addr.area + ", " : ""}{addr.city}{addr.postcode ? " — " + addr.postcode : ""}<br/>{addr.phone}
+        </p>
+      </div>
+
+      <div className="panel" style={{ marginTop: 16, padding: 20 }}>
+        <div className="pdp-label">{lines.length} {lines.length === 1 ? "piece" : "pieces"}</div>
+        {lines.map((l) => (
+          <div key={l.id} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}>
+            <span>
+              {l.nameSnapshot}
+              {(l.color || l.size) && <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>· {[l.color, l.size].filter(Boolean).join(" · ")}</span>}
+              <span style={{ color: "var(--ink-soft)", marginLeft: 8 }}>× {l.qty}</span>
+            </span>
+            <span>{formatBdt(l.lineTotalBdt)}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 12, fontWeight: 500 }}>
+          <span>Total</span>
+          <span>{formatBdt(order.totalBdt)}</span>
+        </div>
+      </div>
+
+      <p style={{ marginTop: 32, textAlign: "center", color: "var(--ink-soft)", fontSize: 13 }}>
+        Questions? Write to <a href="mailto:concierge@saanguine.com">concierge@saanguine.com</a>.
+      </p>
+    </section>
+  );
+}

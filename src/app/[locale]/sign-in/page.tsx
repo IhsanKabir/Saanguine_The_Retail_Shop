@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Link } from "@/i18n/routing";
+import { Link, useRouter } from "@/i18n/routing";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function SignInPage() {
   const t = useTranslations();
+  const router = useRouter();
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -17,14 +18,11 @@ export default function SignInPage() {
     setPending(true);
     setError(null);
     const supabase = createSupabaseBrowserClient();
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${origin}/auth/callback` },
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     setPending(false);
     if (error) { setError(error.message); return; }
-    setSent(true);
+    router.push("/account");
+    router.refresh();
   };
 
   return (
@@ -34,31 +32,42 @@ export default function SignInPage() {
         {t("account.signIn")}
       </h1>
       <p style={{ color: "var(--ink-soft)", fontSize: 14, margin: "0 0 32px", textAlign: "center" }}>
-        We will send a single-use link to your inbox.
+        Sign in with your email and password.
       </p>
 
-      {sent ? (
-        <div className="panel" style={{ textAlign: "center" }}>
-          <h3>Check your inbox</h3>
-          <p style={{ color: "var(--ink-soft)", fontSize: 13 }}>
-            The link arrives within a minute. It expires in one hour.
-          </p>
+      <form className="panel" onSubmit={onSubmit}>
+        <div className="field">
+          <label>Email</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@mail.co"
+            autoComplete="email"
+            autoFocus
+          />
         </div>
-      ) : (
-        <form className="panel" onSubmit={onSubmit}>
-          <div className="field">
-            <label>{t("checkout.email")}</label>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@mail.co" autoFocus/>
-          </div>
-          <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={pending}>
-            {pending ? "Sending…" : "Send sign-in link"}
-          </button>
-          {error && <p style={{ color: "var(--err)", fontSize: 13, marginTop: 12 }}>{error}</p>}
-          <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 18, textAlign: "center" }}>
-            Or simply <Link href="/checkout">place an order as a guest</Link>.
-          </p>
-        </form>
-      )}
+        <div className="field" style={{ marginTop: 12 }}>
+          <label>Password</label>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="current-password"
+            minLength={6}
+          />
+        </div>
+        <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={pending}>
+          {pending ? "Signing in…" : "Sign in"}
+        </button>
+        {error && <p style={{ color: "var(--err)", fontSize: 13, marginTop: 12 }}>{error}</p>}
+        <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 18, textAlign: "center" }}>
+          Or simply <Link href="/checkout">place an order as a guest</Link>.
+        </p>
+      </form>
     </section>
   );
 }

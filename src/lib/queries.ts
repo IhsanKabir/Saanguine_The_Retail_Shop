@@ -2,6 +2,12 @@ import { db } from "./db";
 import { segments, products, productImages } from "./schema";
 import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
+// Reusable subquery: ids of segments that are NOT hidden.
+// Products in hidden segments are excluded from every customer-facing query.
+const visibleSegmentIds = db.select({ id: segments.id })
+  .from(segments)
+  .where(eq(segments.hidden, false));
+
 // ─── Segments ──────────────────────────────────────────────────────────
 export async function getVisibleSegments() {
   return db.select().from(segments)
@@ -25,7 +31,10 @@ export async function getLiveProducts(opts?: {
   limit?: number;
   sort?: "featured" | "price-asc" | "price-desc" | "rating";
 }) {
-  const conds = [eq(products.status, "live")];
+  const conds = [
+    eq(products.status, "live"),
+    inArray(products.segmentId, visibleSegmentIds),
+  ];
   if (opts?.segmentId) conds.push(eq(products.segmentId, opts.segmentId));
   if (opts?.tag) conds.push(eq(products.tag, opts.tag));
 
@@ -43,7 +52,11 @@ export async function getLiveProducts(opts?: {
 }
 
 export async function getProductBySlug(slug: string) {
-  const rows = await db.select().from(products).where(eq(products.slug, slug)).limit(1);
+  const rows = await db.select().from(products).where(and(
+    eq(products.slug, slug),
+    eq(products.status, "live"),
+    inArray(products.segmentId, visibleSegmentIds),
+  )).limit(1);
   return rows[0] ?? null;
 }
 
@@ -66,6 +79,7 @@ export async function searchProducts(query: string, limit = 8) {
   return db.select().from(products).where(
     and(
       eq(products.status, "live"),
+      inArray(products.segmentId, visibleSegmentIds),
       or(
         ilike(products.name, `%${q}%`),
         ilike(products.sku, `%${q}%`),

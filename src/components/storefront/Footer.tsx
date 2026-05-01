@@ -26,7 +26,7 @@ export default async function Footer() {
             <ul>
               {segments.slice(0, 5).map((c) => (
                 <li key={c.id}>
-                  <Link href={{ pathname: "/shop/[segment]", params: { segment: c.id } }}>{c.name}</Link>
+                  <Link href={`/shop/${c.id}`}>{c.name}</Link>
                 </li>
               ))}
             </ul>
@@ -37,7 +37,11 @@ export default async function Footer() {
           </div>
           <div>
             <div className="col-title">{t("footer.service")}</div>
-            <ul><li>Shipping</li><li>Returns</li><li>Cash on Delivery</li></ul>
+            <ul>
+              <li><Link href="/legal/shipping">Shipping</Link></li>
+              <li><Link href="/legal/returns">Returns</Link></li>
+              <li>Cash on Delivery</li>
+            </ul>
           </div>
           <div>
             <div className="col-title">{t("footer.contact")}</div>
@@ -46,7 +50,15 @@ export default async function Footer() {
         </div>
         <div className="footer-bottom">
           <span>© MMXXVI {t("brand.name")} Maison · {t("footer.rights")}</span>
-          <span>{t("footer.privacy")} · {t("footer.terms")} · {t("footer.accessibility")}</span>
+          <span>
+            <Link href="/legal/privacy">{t("footer.privacy")}</Link>
+            {" · "}
+            <Link href="/legal/terms">{t("footer.terms")}</Link>
+            {" · "}
+            <Link href="/legal/returns">Returns</Link>
+            {" · "}
+            <Link href="/legal/shipping">Shipping</Link>
+          </span>
         </div>
       </div>
     </footer>

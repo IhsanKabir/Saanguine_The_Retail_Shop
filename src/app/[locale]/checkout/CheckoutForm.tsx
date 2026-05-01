@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useCart } from "@/lib/cart-context";
 import { useRouter } from "@/i18n/routing";
 import { useLocale, useTranslations } from "next-intl";
 import { formatBdt } from "@/lib/utils";
 import { createCodOrder } from "@/lib/actions/orders";
+import { track } from "@/lib/actions/track";
 import Composition from "@/components/storefront/Composition";
 import Icon from "@/components/storefront/Icon";
 
@@ -30,6 +31,18 @@ export default function CheckoutForm() {
 
   const shipping = subtotalBdt >= FREE_THRESHOLD ? 0 : (s.city.toLowerCase().includes("dhaka") ? FLAT_DHAKA : FLAT_OUTSIDE);
   const total = subtotalBdt + shipping;
+
+  // Track checkout_start once when the form first renders with items
+  useEffect(() => {
+    if (hydrated && items.length > 0) {
+      track({
+        type: "checkout_start",
+        payload: { items: items.length, subtotalBdt },
+        path: "/checkout",
+      }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   if (!hydrated) return <p>Loading…</p>;
   if (items.length === 0) {
@@ -66,7 +79,7 @@ export default function CheckoutForm() {
         return;
       }
       clear();
-      router.push({ pathname: "/order/[number]", params: { number: res.number } });
+      router.push(`/order/${res.number}`);
     });
   };
 

@@ -3,37 +3,77 @@ import { Link } from "@/i18n/routing";
 import { requireAdmin } from "@/lib/auth-utils";
 import { signOut } from "@/lib/actions/auth";
 import Icon from "@/components/storefront/Icon";
+import type { Permission } from "@/lib/permissions";
 
 type Props = {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 };
 
+type AdminPath =
+  | "/admin"
+  | "/admin/orders"
+  | "/admin/products"
+  | "/admin/segments"
+  | "/admin/inventory"
+  | "/admin/customers"
+  | "/admin/analytics"
+  | "/admin/behavior"
+  | "/admin/reports"
+  | "/admin/editorial"
+  | "/admin/settings"
+  | "/admin/users";
+
+const NAV: Array<{
+  href: AdminPath;
+  name: string;
+  icon: string;
+  group: "Overview" | "Commerce" | "House" | "Team";
+  perm: Permission;
+}> = [
+  { href: "/admin",           name: "Dashboard", icon: "feather", group: "Overview", perm: "dashboard" },
+  { href: "/admin/analytics", name: "Analytics", icon: "feather", group: "Overview", perm: "analytics" },
+  { href: "/admin/behavior",  name: "Behavior",  icon: "feather", group: "Overview", perm: "behavior"  },
+  { href: "/admin/reports",   name: "Reports",   icon: "feather", group: "Overview", perm: "reports"   },
+  { href: "/admin/orders",    name: "Orders",    icon: "bag",     group: "Commerce", perm: "orders" },
+  { href: "/admin/products",  name: "Products",  icon: "feather", group: "Commerce", perm: "products" },
+  { href: "/admin/segments",  name: "Segments",  icon: "feather", group: "Commerce", perm: "segments" },
+  { href: "/admin/inventory", name: "Inventory", icon: "feather", group: "Commerce", perm: "inventory" },
+  { href: "/admin/customers", name: "Customers", icon: "user",    group: "Commerce", perm: "customers" },
+  { href: "/admin/editorial", name: "Editorial", icon: "feather", group: "House",    perm: "editorial" },
+  { href: "/admin/settings",  name: "Settings",  icon: "feather", group: "House",    perm: "settings" },
+  { href: "/admin/users",     name: "Users",     icon: "user",    group: "Team",     perm: "users" },
+];
+
 export default async function AdminLayout({ children, params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const user = await requireAdmin();
+  const ctx = await requireAdmin();
 
-  const nav = [
-    { id: "/admin", name: "Dashboard", icon: "feather" },
-    { id: "/admin/orders", name: "Orders", icon: "bag" },
-    { id: "/admin/products", name: "Products", icon: "feather" },
-    { id: "/admin/segments", name: "Segments", icon: "feather" },
-    { id: "/admin/editorial", name: "Editorial", icon: "feather" },
-  ];
+  const visibleNav = NAV.filter((n) => ctx.has(n.perm));
+  const groups = ["Overview", "Commerce", "House", "Team"] as const;
 
   return (
     <div className="admin-body">
       <aside className="admin-side">
         <div className="admin-logo">Saanguine<small>ADMIN · v3.0</small></div>
-        <div className="admin-nav-group">Commerce</div>
-        {nav.map((n) => (
-          <Link key={n.id} href={n.id as never} className="admin-link">
-            <Icon name={n.icon} size={16} /> <span>{n.name}</span>
-          </Link>
-        ))}
+        {groups.map((g) => {
+          const items = visibleNav.filter((n) => n.group === g);
+          if (items.length === 0) return null;
+          return (
+            <div key={g}>
+              <div className="admin-nav-group">{g}</div>
+              {items.map((n) => (
+                <Link key={n.href} href={n.href} className="admin-link">
+                  <Icon name={n.icon} size={16} /> <span>{n.name}</span>
+                </Link>
+              ))}
+            </div>
+          );
+        })}
         <div style={{ marginTop: "auto", padding: "12px", borderTop: "1px solid var(--purple-900)", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontSize: 11, color: "var(--purple-200)", letterSpacing: ".1em", textTransform: "uppercase" }}>{user.email}</div>
+          <div style={{ fontSize: 11, color: "var(--purple-200)", letterSpacing: ".1em", textTransform: "uppercase" }}>{ctx.user.email}</div>
+          <div style={{ fontSize: 10, color: "var(--gold)", fontFamily: "var(--mono)", letterSpacing: ".15em", textTransform: "uppercase" }}>{ctx.role}</div>
           <form action={signOut}>
             <button type="submit" className="btn btn-ghost btn-sm" style={{ width: "100%", borderColor: "var(--purple-700)", color: "var(--purple-200)" }}>
               Sign out

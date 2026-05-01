@@ -158,6 +158,21 @@ export const inventoryLog = pgTable("inventory_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── Events (behavior analytics) ───────────────────────────────────────
+export const events = pgTable("events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  type: text("type").notNull(),
+  sessionId: text("session_id"),
+  customerId: uuid("customer_id"),
+  productId: text("product_id"),
+  payload: jsonb("payload").default({}),
+  ua: text("ua"),
+  referrer: text("referrer"),
+  path: text("path"),
+  ip: text("ip"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── Site settings (overflow when not in Sanity) ───────────────────────
 export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),

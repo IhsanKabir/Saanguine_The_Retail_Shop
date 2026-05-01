@@ -6,6 +6,7 @@ import { eq, sql, inArray } from "drizzle-orm";
 import { sendEmail } from "@/lib/email/brevo";
 import { orderPlacedEmail, type OrderEmailLine } from "@/lib/email/templates";
 import { sendSms } from "@/lib/sms/ssl-wireless";
+import { trackEvent } from "@/lib/events";
 import { formatBdt } from "@/lib/utils";
 
 const FREE_THRESHOLD = 3000;
@@ -162,6 +163,13 @@ export async function createCodOrder(input: CreateOrderInput) {
     data.customer.phone,
     `Maison Saanguine: order ${number} confirmed (COD ${formatBdt(total)}). Have cash ready for our courier.`,
   ).catch((e) => console.error("[order sms]", e));
+
+  // Fire-and-forget event for behavior analytics
+  trackEvent({
+    type: "order_placed",
+    payload: { number, totalBdt: total, lines: lines.length, paymentMethod: "cod" },
+    path: "/checkout",
+  }).catch(() => {});
 
   return { ok: true as const, number, totalBdt: total };
 }

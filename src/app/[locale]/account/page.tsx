@@ -58,7 +58,7 @@ export default async function AccountPage({ params }: Props) {
                     </span>
                   </td>
                   <td>{formatBdt(o.totalBdt, locale as "en"|"bn")}</td>
-                  <td><Link href={{ pathname: "/order/[number]", params: { number: o.number } }}>View</Link></td>
+                  <td><Link href={`/order/${o.number}`}>View</Link></td>
                 </tr>
               ))}
             </tbody>
