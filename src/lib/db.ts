@@ -15,31 +15,22 @@ if (!process.env.DATABASE_URL) {
 }
 
 /**
- * Convert a Supabase Transaction-pooler URL (port 6543, "?pgbouncer=true")
- * into a Session-pooler URL (port 5432, no pgbouncer flag).
+ * On Vercel/serverless we need the Supabase Transaction pooler (port 6543).
+ * It multiplexes connections via PgBouncer in transaction mode — the only
+ * way to handle many concurrent serverless function invocations without
+ * blowing past Supabase's session-mode pool limit (15 clients).
  *
- * Why: the Transaction pooler (6543) doesn't keep a connection per query —
- * it multiplexes via PgBouncer transaction mode, which doesn't support
- * prepared statements and has aggressive statement timeouts that kill
- * Drizzle's introspection queries during dev.
+ * Locally we keep whatever the env says (usually port 5432 session pooler
+ * for a smoother dev experience).
  *
- * The Session pooler (5432) gives each client a dedicated connection,
- * supports prepared statements, and has no surprise timeouts. Slightly
- * less efficient at very high concurrency, but the only sane choice
- * for dev + small-scale prod.
+ * Transaction pooler caveat: prepared statements are not supported, so we
+ * disable them when port is 6543. db.transaction() still works because
+ * BEGIN/COMMIT happen within a single pooled connection's transaction.
  */
-function toSessionPooler(rawUrl: string): string {
-  try {
-    const u = new URL(rawUrl);
-    if (u.port === "6543") u.port = "5432";
-    u.search = ""; // strip ?pgbouncer=true
-    return u.toString();
-  } catch {
-    return rawUrl;
-  }
-}
-
-const URL_TO_USE = toSessionPooler(process.env.DATABASE_URL);
+const RAW_URL = process.env.DATABASE_URL;
+const IS_TXN_POOLER = (() => {
+  try { return new URL(RAW_URL).port === "6543"; } catch { return false; }
+})();
 
 // Cache the postgres client across Next.js dev hot-reloads. Without this,
 // every code change spawns a new client and the old one keeps its TCP
@@ -49,11 +40,11 @@ const globalWithPg = globalThis as GlobalWithPg;
 
 const client =
   globalWithPg.__ssg_pg ??
-  postgres(URL_TO_USE, {
-    max: 10,            // Session pooler can hold multiple connections
-    idle_timeout: 30,   // Close idle connections after 30s
+  postgres(RAW_URL, {
+    max: IS_TXN_POOLER ? 1 : 10,
+    idle_timeout: 20,
     connect_timeout: 10,
-    prepare: true,      // Session pooler supports prepared statements
+    prepare: !IS_TXN_POOLER,
   });
 
 if (process.env.NODE_ENV !== "production") {
