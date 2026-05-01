@@ -8,10 +8,11 @@ import Icon from "@/components/storefront/Icon";
 
 type Props = { users: AdminUserSummary[]; currentUserId: string };
 
+type AdminTierRole = Exclude<AdminRole, "customer">;
 type InviteForm = {
   email: string;
   password: string;
-  role: AdminRole;
+  role: AdminTierRole;
   permissions: Permission[];
 };
 
@@ -137,7 +138,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             </div>
             <div className="field" style={{ marginTop: 12 }}>
               <label>Role</label>
-              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as AdminRole })}>
+              <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as AdminTierRole })}>
                 <option value="subadmin">Subadmin (scoped permissions)</option>
                 <option value="admin">Admin (full access)</option>
                 <option value="owner">Owner (full access + can manage users)</option>
