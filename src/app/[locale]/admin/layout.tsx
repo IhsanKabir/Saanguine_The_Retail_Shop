@@ -5,6 +5,8 @@ import { signOut } from "@/lib/actions/auth";
 import Icon from "@/components/storefront/Icon";
 import type { Permission } from "@/lib/permissions";
 
+export const dynamic = "force-dynamic";
+
 type Props = {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;

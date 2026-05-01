@@ -2,6 +2,8 @@ import { setRequestLocale } from "next-intl/server";
 import { db, schema } from "@/lib/db";
 import WishlistClient from "./WishlistClient";
 
+export const dynamic = "force-dynamic";
+
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function WishlistPage({ params }: Props) {

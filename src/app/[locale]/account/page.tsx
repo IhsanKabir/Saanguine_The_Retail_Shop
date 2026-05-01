@@ -6,6 +6,8 @@ import { eq, desc } from "drizzle-orm";
 import { formatBdt, formatDate } from "@/lib/utils";
 import { signOut } from "@/lib/actions/auth";
 
+export const dynamic = "force-dynamic";
+
 type Props = { params: Promise<{ locale: string }> };
 
 export default async function AccountPage({ params }: Props) {
