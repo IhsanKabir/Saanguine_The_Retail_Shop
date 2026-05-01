@@ -41,7 +41,10 @@ const globalWithPg = globalThis as GlobalWithPg;
 const client =
   globalWithPg.__ssg_pg ??
   postgres(RAW_URL, {
-    max: IS_TXN_POOLER ? 1 : 10,
+    // Transaction pooler multiplexes server-side, so 5 client connections
+    // per function instance is plenty for Promise.all of 3-5 queries
+    // without serializing them. Session pooler keeps 10 dedicated.
+    max: IS_TXN_POOLER ? 5 : 10,
     idle_timeout: 20,
     connect_timeout: 10,
     prepare: !IS_TXN_POOLER,

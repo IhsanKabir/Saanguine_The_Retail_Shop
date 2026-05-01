@@ -64,7 +64,8 @@ export async function toggleSegment(id: string) {
   await db.update(schema.segments)
     .set({ hidden: sql`not ${schema.segments.hidden}` })
     .where(eq(schema.segments.id, id));
-  revalidatePath("/", "layout");
+  revalidatePath("/[locale]/admin/segments", "page");
+  revalidatePath("/[locale]", "layout");
 }
 
 export async function moveSegment(id: string, delta: number) {
