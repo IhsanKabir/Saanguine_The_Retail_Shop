@@ -20,6 +20,7 @@ type AdminPath =
   | "/admin/analytics"
   | "/admin/behavior"
   | "/admin/reports"
+  | "/admin/coupons"
   | "/admin/editorial"
   | "/admin/settings"
   | "/admin/users";
@@ -40,6 +41,7 @@ const NAV: Array<{
   { href: "/admin/segments",  name: "Segments",  icon: "feather", group: "Commerce", perm: "segments" },
   { href: "/admin/inventory", name: "Inventory", icon: "feather", group: "Commerce", perm: "inventory" },
   { href: "/admin/customers", name: "Customers", icon: "user",    group: "Commerce", perm: "customers" },
+  { href: "/admin/coupons",   name: "Coupons",   icon: "feather", group: "Commerce", perm: "coupons" },
   { href: "/admin/editorial", name: "Editorial", icon: "feather", group: "House",    perm: "editorial" },
   { href: "/admin/settings",  name: "Settings",  icon: "feather", group: "House",    perm: "settings" },
   { href: "/admin/users",     name: "Users",     icon: "user",    group: "Team",     perm: "users" },

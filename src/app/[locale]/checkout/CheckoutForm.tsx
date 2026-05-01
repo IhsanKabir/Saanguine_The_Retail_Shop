@@ -9,6 +9,7 @@ import { createCodOrder } from "@/lib/actions/orders";
 import { track } from "@/lib/actions/track";
 import Composition from "@/components/storefront/Composition";
 import Icon from "@/components/storefront/Icon";
+import CouponInput from "@/components/storefront/CouponInput";
 
 const FREE_THRESHOLD = 3000;
 const FLAT_DHAKA = 80;
@@ -18,7 +19,7 @@ export default function CheckoutForm() {
   const t = useTranslations();
   const locale = useLocale() as "en" | "bn";
   const router = useRouter();
-  const { items, subtotalBdt, clear, hydrated } = useCart();
+  const { items, subtotalBdt, clear, hydrated, coupon } = useCart();
   const [step, setStep] = useState<1 | 2>(1);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +30,10 @@ export default function CheckoutForm() {
   });
   const [notes, setNotes] = useState("");
 
-  const shipping = subtotalBdt >= FREE_THRESHOLD ? 0 : (s.city.toLowerCase().includes("dhaka") ? FLAT_DHAKA : FLAT_OUTSIDE);
-  const total = subtotalBdt + shipping;
+  const baseShipping = subtotalBdt >= FREE_THRESHOLD ? 0 : (s.city.toLowerCase().includes("dhaka") ? FLAT_DHAKA : FLAT_OUTSIDE);
+  const shipping = coupon?.freeShipping ? 0 : baseShipping;
+  const discount = coupon?.discountBdt ?? 0;
+  const total = Math.max(0, subtotalBdt - discount) + shipping;
 
   // Track checkout_start once when the form first renders with items
   useEffect(() => {
@@ -72,6 +75,7 @@ export default function CheckoutForm() {
         customer: { fullName: c.fullName.trim(), email: c.email.trim(), phone: c.phone.trim() },
         shipping: s,
         items: items.map((i) => ({ productId: i.productId, qty: i.qty, color: i.color, size: i.size })),
+        couponCode: coupon?.code || null,
         notes: notes || null,
       });
       if (!res.ok) {
@@ -177,8 +181,15 @@ export default function CheckoutForm() {
             </div>
           ))}
           <div style={{ borderTop: "1px solid var(--line)", paddingTop: 16, marginTop: 8 }}>
-            <div className="totals">
+            <CouponInput compact />
+            <div className="totals" style={{ marginTop: 16 }}>
               <div className="r"><span className="muted">Subtotal</span><span>{formatBdt(subtotalBdt, locale)}</span></div>
+              {discount > 0 && (
+                <div className="r" style={{ color: "oklch(0.45 0.14 145)" }}>
+                  <span className="muted">Discount · {coupon?.code}</span>
+                  <span>− {formatBdt(discount, locale)}</span>
+                </div>
+              )}
               <div className="r"><span className="muted">Shipping</span><span>{shipping === 0 ? t("cart.shippingFree") : formatBdt(shipping, locale)}</span></div>
               <div className="r grand"><span>{t("cart.total")}</span><span>{formatBdt(total, locale)}</span></div>
             </div>

@@ -1,4 +1,91 @@
-/* ─── Saanguine — extras (floating chat, cookie banner, legal, tracking) ─── */
+/* ─── Saanguine — extras (floating chat, cookie banner, legal, tracking, coupons) ─── */
+
+/* Coupon input + applied badge */
+.coupon-input {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  position: relative;
+}
+.coupon-input input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: white;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--purple-900);
+}
+.coupon-input input:focus { outline: none; border-color: var(--purple-700); }
+.coupon-input button {
+  padding: 10px 18px;
+  background: var(--purple-900);
+  color: var(--cream);
+  border: 1px solid var(--purple-900);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s;
+}
+.coupon-input button:hover:not(:disabled) { background: var(--purple-700); }
+.coupon-input button:disabled { opacity: .5; cursor: not-allowed; }
+.coupon-input.compact input,
+.coupon-input.compact button { font-size: 10px; padding: 8px 12px; }
+.coupon-input .ci-error {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  font-size: 11px;
+  color: var(--err);
+  margin: 0;
+}
+
+.coupon-applied {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-top: 14px;
+  background: oklch(0.96 0.04 145);
+  border: 1px solid oklch(0.78 0.10 145);
+  position: relative;
+}
+.coupon-applied .ca-body { flex: 1; }
+.coupon-applied .ca-code { font-size: 13px; }
+.coupon-applied .ca-code b {
+  font-family: var(--mono);
+  letter-spacing: .15em;
+  color: oklch(0.32 0.14 145);
+}
+.coupon-applied .ca-desc { color: var(--ink-soft); font-style: italic; }
+.coupon-applied .ca-savings {
+  font-size: 11px;
+  color: oklch(0.45 0.14 145);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.coupon-applied .ca-remove {
+  background: transparent;
+  border: 1px solid oklch(0.78 0.10 145);
+  color: oklch(0.45 0.14 145);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  transition: background .15s, color .15s;
+}
+.coupon-applied .ca-remove:hover { background: var(--err); color: white; border-color: var(--err); }
+.coupon-applied.compact { padding: 10px 12px; }
+.coupon-applied.compact .ca-code { font-size: 12px; }
+.coupon-applied.compact .ca-savings { font-size: 10px; }
 
 /* Floating chat (WhatsApp + Messenger) */
 .floating-chat {

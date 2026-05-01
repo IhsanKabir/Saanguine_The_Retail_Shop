@@ -6,6 +6,7 @@ import { Link, useRouter } from "@/i18n/routing";
 import { formatBdt } from "@/lib/utils";
 import Composition from "./Composition";
 import Icon from "./Icon";
+import CouponInput from "./CouponInput";
 
 const FREE_THRESHOLD = 3000;
 
@@ -13,8 +14,10 @@ export default function CartDrawer() {
   const t = useTranslations();
   const locale = useLocale() as "en" | "bn";
   const router = useRouter();
-  const { items, open, closeDrawer, inc, dec, remove, subtotalBdt, itemKey } = useCart();
+  const { items, open, closeDrawer, inc, dec, remove, subtotalBdt, itemKey, coupon } = useCart();
   if (!open) return null;
+  const discount = coupon?.discountBdt ?? 0;
+  const afterDiscount = Math.max(0, subtotalBdt - discount);
 
   const remaining = Math.max(0, FREE_THRESHOLD - subtotalBdt);
   const met = remaining === 0;
@@ -83,18 +86,29 @@ export default function CartDrawer() {
 
         {items.length > 0 && (
           <div className="drawer-foot">
-            <div className="totals" style={{ marginBottom: 16 }}>
+            <div style={{ padding: "0 24px" }}>
+              <CouponInput compact />
+            </div>
+            <div className="totals" style={{ margin: "16px 0" }}>
               <div className="r">
                 <span>{t("cart.subtotal")}</span>
                 <span>{formatBdt(subtotalBdt, locale)}</span>
               </div>
+              {discount > 0 && (
+                <div className="r" style={{ color: "oklch(0.45 0.14 145)" }}>
+                  <span>Discount · {coupon?.code}</span>
+                  <span>− {formatBdt(discount, locale)}</span>
+                </div>
+              )}
               <div className="r">
                 <span>{t("cart.shipping")}</span>
-                <span>{met ? t("cart.shippingFree") : "calculated at checkout"}</span>
+                <span>
+                  {coupon?.freeShipping ? t("cart.shippingFree") : (met ? t("cart.shippingFree") : "calculated at checkout")}
+                </span>
               </div>
               <div className="r grand">
                 <span>{t("cart.total")}</span>
-                <span>{formatBdt(subtotalBdt, locale)}</span>
+                <span>{formatBdt(afterDiscount, locale)}</span>
               </div>
             </div>
             <button className="btn btn-primary btn-block" onClick={onCheckout}>

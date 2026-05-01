@@ -91,6 +91,8 @@ export const orders = pgTable("orders", {
   shippingAddress: jsonb("shipping_address").notNull(),
   shippingCourier: text("shipping_courier"),     // 'pathao' | 'steadfast'
   shippingTracking: text("shipping_tracking"),
+  couponCode: text("coupon_code"),
+  couponDiscountBdt: integer("coupon_discount_bdt").default(0).notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -157,6 +159,35 @@ export const inventoryLog = pgTable("inventory_log", {
   actorId: uuid("actor_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── Coupons (discount codes) ──────────────────────────────────────────
+export const coupons = pgTable("coupons", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  code: text("code").unique().notNull(),
+  description: text("description"),
+  type: text("type").notNull(),                 // 'percent' | 'fixed' | 'free_shipping'
+  value: integer("value").default(0).notNull(),
+  minSubtotalBdt: integer("min_subtotal_bdt").default(0).notNull(),
+  maxUses: integer("max_uses"),
+  usedCount: integer("used_count").default(0).notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const couponRedemptions = pgTable("coupon_redemptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  couponId: uuid("coupon_id").notNull(),
+  orderId: uuid("order_id"),
+  customerId: uuid("customer_id"),
+  customerEmail: text("customer_email"),
+  discountBdt: integer("discount_bdt").notNull(),
+  redeemedAt: timestamp("redeemed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Coupon = typeof coupons.$inferSelect;
 
 // ─── Events (behavior analytics) ───────────────────────────────────────
 export const events = pgTable("events", {

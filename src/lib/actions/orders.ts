@@ -7,6 +7,7 @@ import { sendEmail } from "@/lib/email/brevo";
 import { orderPlacedEmail, type OrderEmailLine } from "@/lib/email/templates";
 import { sendSms } from "@/lib/sms/ssl-wireless";
 import { trackEvent } from "@/lib/events";
+import { validateCoupon, recordCouponRedemption } from "./coupons";
 import { formatBdt } from "@/lib/utils";
 
 const FREE_THRESHOLD = 3000;
@@ -37,6 +38,7 @@ const inputSchema = z.object({
     postcode: z.string().max(20).optional().nullable(),
   }),
   items: z.array(itemSchema).min(1).max(50),
+  couponCode: z.string().max(40).optional().nullable(),
   notes: z.string().max(400).optional().nullable(),
 });
 
@@ -87,11 +89,24 @@ export async function createCodOrder(input: CreateOrderInput) {
     });
   }
 
-  const shipping = shippingCost(data.shipping.city, subtotal);
-  const total = subtotal + shipping + COD_FEE;
+  // 3. Validate coupon (server-side; never trust client)
+  let couponDiscount = 0;
+  let freeShipping = false;
+  let couponCode: string | null = null;
+  if (data.couponCode) {
+    const v = await validateCoupon(data.couponCode, subtotal);
+    if (!v.ok) return { ok: false as const, error: v.error };
+    couponDiscount = v.discountBdt;
+    freeShipping = v.freeShipping;
+    couponCode = v.code;
+  }
+
+  const baseShipping = shippingCost(data.shipping.city, subtotal);
+  const shipping = freeShipping ? 0 : baseShipping;
+  const total = Math.max(0, subtotal - couponDiscount) + shipping + COD_FEE;
   const number = generateOrderNumber();
 
-  // 3. Insert order + lines + decrement stock in a single transaction
+  // 4. Insert order + lines + decrement stock in a single transaction
   const [order] = await db.transaction(async (tx) => {
     const [o] = await tx.insert(schema.orders).values({
       number,
@@ -102,6 +117,8 @@ export async function createCodOrder(input: CreateOrderInput) {
       subtotalBdt: subtotal,
       shippingBdt: shipping,
       codFeeBdt: COD_FEE,
+      couponCode,
+      couponDiscountBdt: couponDiscount,
       totalBdt: total,
       shippingAddress: {
         fullName: data.customer.fullName,
@@ -129,7 +146,7 @@ export async function createCodOrder(input: CreateOrderInput) {
     return [o];
   });
 
-  // 4. Send email + SMS confirmations (best effort, never throw)
+  // 5. Send email + SMS confirmations (best effort, never throw)
   const emailLines: OrderEmailLine[] = lines.map((l) => ({
     name: l.nameSnapshot,
     qty: l.qty,
@@ -156,7 +173,6 @@ export async function createCodOrder(input: CreateOrderInput) {
     paymentMethod: "cod" as const,
   };
   const { subject, html } = orderPlacedEmail(emailData);
-  // Fire-and-forget; we don't await failures
   sendEmail({ to: data.customer.email, toName: data.customer.fullName, subject, html })
     .catch((e) => console.error("[order email]", e));
   sendSms(
@@ -164,10 +180,20 @@ export async function createCodOrder(input: CreateOrderInput) {
     `Maison Saanguine: order ${number} confirmed (COD ${formatBdt(total)}). Have cash ready for our courier.`,
   ).catch((e) => console.error("[order sms]", e));
 
-  // Fire-and-forget event for behavior analytics
+  // 6. Record coupon redemption — fire-and-forget; never roll back a successful order.
+  if (couponCode) {
+    recordCouponRedemption({
+      code: couponCode,
+      orderId: order.id,
+      discountBdt: couponDiscount + (freeShipping ? baseShipping : 0),
+      customerEmail: data.customer.email,
+    }).catch((e) => console.error("[coupon redemption]", e));
+  }
+
+  // 7. Behavior analytics
   trackEvent({
     type: "order_placed",
-    payload: { number, totalBdt: total, lines: lines.length, paymentMethod: "cod" },
+    payload: { number, totalBdt: total, lines: lines.length, paymentMethod: "cod", couponCode },
     path: "/checkout",
   }).catch(() => {});
 
