@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { eq, desc } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
@@ -209,6 +210,7 @@ export async function convertPreorderToOrder(input: z.infer<typeof convertSchema
 
   const number = `SSG-PO-${Date.now().toString(36).toUpperCase()}`;
   const subtotal = req.quotedPriceBdt * req.quantity;
+  const trackingToken = randomBytes(16).toString("hex");
 
   const newOrderId = await db.transaction(async (tx) => {
     const [order] = await tx.insert(schema.orders).values({
@@ -223,6 +225,7 @@ export async function convertPreorderToOrder(input: z.infer<typeof convertSchema
       codFeeBdt: 0,
       totalBdt: subtotal,
       shippingAddress: { fullName: req.customerName, phone: req.customerPhone, ...(req.deliveryAddress as object) },
+      trackingToken,
       notes: `Bespoke pre-order · request ${req.id}`,
     }).returning({ id: schema.orders.id });
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { db, schema } from "@/lib/db";
-import { sql, and, gte, lte, desc, eq, ne } from "drizzle-orm";
+import { sql, and, gte, lte, desc, eq } from "drizzle-orm";
 import { requirePermission } from "@/lib/auth-utils";
 
 export type DateRange = { from: Date; to: Date };

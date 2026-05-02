@@ -6,6 +6,7 @@ import { setRequestLocale } from "next-intl/server";
 import { formatBdt, formatDate } from "@/lib/utils";
 import { Link } from "@/i18n/routing";
 import Icon from "@/components/storefront/Icon";
+import { getCurrentUser } from "@/lib/auth-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-type Props = { params: Promise<{ number: string; locale: string }> };
+type Props = {
+  params: Promise<{ number: string; locale: string }>;
+  searchParams: Promise<{ t?: string }>;
+};
 
 const TIMELINE_EN = [
   { status: "pending",        label: "Order received",      desc: "The atelier has received your order and is preparing the piece." },
@@ -50,8 +54,8 @@ function courierTrackingUrl(courier: string | null, code: string | null): string
   return null;
 }
 
-export default async function OrderTrackPage({ params }: Props) {
-  const { locale, number } = await params;
+export default async function OrderTrackPage({ params, searchParams }: Props) {
+  const [{ locale, number }, sp] = await Promise.all([params, searchParams]);
   setRequestLocale(locale);
   const isBn = locale === "bn";
   const t = (en: string, bn: string) => (isBn ? bn : en);
@@ -59,6 +63,16 @@ export default async function OrderTrackPage({ params }: Props) {
   const orders = await db.select().from(schema.orders).where(eq(schema.orders.number, number)).limit(1).catch(() => []);
   const order = orders[0];
   if (!order) notFound();
+
+  // Gate: the visitor must either present the matching tracking token in `?t=`
+  // OR be signed in as the customer who placed the order. Otherwise show 404.
+  const tokenMatches = !!sp.t && sp.t === order.trackingToken;
+  let ownerMatches = false;
+  if (!tokenMatches) {
+    const user = await getCurrentUser();
+    ownerMatches = !!user && !!order.customerId && user.id === order.customerId;
+  }
+  if (!tokenMatches && !ownerMatches) notFound();
 
   const lines = await db.select().from(schema.orderLines).where(eq(schema.orderLines.orderId, order.id)).catch(() => []);
   const addr = order.shippingAddress as { fullName: string; phone: string; line1: string; area?: string; city: string; postcode?: string };

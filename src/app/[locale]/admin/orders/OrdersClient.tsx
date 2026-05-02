@@ -24,8 +24,20 @@ export default function OrdersClient({ orders, lines }: Props) {
 
   return (
     <>
-      <h1 className="admin-h1">Orders</h1>
-      <p className="admin-sub">{orders.length} total · {orders.filter((o) => o.status === "cod_pending").length} awaiting fulfilment.</p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", marginBottom: 16 }}>
+        <div>
+          <h1 className="admin-h1">Orders</h1>
+          <p className="admin-sub">{orders.length} total · {orders.filter((o) => o.status === "cod_pending").length} awaiting fulfilment.</p>
+        </div>
+        <a
+          href="/api/admin/orders/export"
+          className="btn btn-ghost btn-sm"
+          title="Download all orders as a CSV (one row per line item)"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <Icon name="arrow" size={12} /> Export CSV
+        </a>
+      </div>
 
       <div className="stat-grid" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
         {[

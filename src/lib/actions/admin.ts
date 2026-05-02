@@ -260,6 +260,7 @@ export async function bookCourier(input: z.infer<typeof courierSchema>) {
       color: l.color,
       size: l.size,
     }));
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine-the-retail-shop.vercel.app").replace(/\/$/, "");
     const { subject, html } = orderShippedEmail({
       number: order.number,
       customerName: addr.fullName,
@@ -274,6 +275,7 @@ export async function bookCourier(input: z.infer<typeof courierSchema>) {
       paymentMethod: order.paymentMethod as "cod",
       courier: data.courier,
       tracking: trackingCode,
+      trackingUrl: `${siteUrl}/en/order/${order.number}/track?t=${order.trackingToken}`,
     });
     sendEmail({ to: order.guestEmail, toName: addr.fullName, subject, html }).catch(() => {});
   }

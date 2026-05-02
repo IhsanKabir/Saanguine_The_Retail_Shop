@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { randomBytes } from "crypto";
 import { db, schema } from "@/lib/db";
 import { eq, sql, inArray } from "drizzle-orm";
 import { sendEmail } from "@/lib/email/brevo";
@@ -9,6 +10,8 @@ import { sendSms } from "@/lib/sms/ssl-wireless";
 import { trackEvent } from "@/lib/events";
 import { validateCoupon, recordCouponRedemption } from "./coupons";
 import { formatBdt } from "@/lib/utils";
+
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine-the-retail-shop.vercel.app").replace(/\/$/, "");
 
 const FREE_THRESHOLD = 3000;
 const FLAT_SHIPPING_DHAKA = 80;
@@ -117,6 +120,7 @@ export async function createCodOrder(input: CreateOrderInput) {
   const number = generateOrderNumber();
 
   // 4. Insert order + lines + decrement stock in a single transaction
+  const trackingToken = randomBytes(16).toString("hex");
   const [order] = await db.transaction(async (tx) => {
     const [o] = await tx.insert(schema.orders).values({
       number,
@@ -135,6 +139,7 @@ export async function createCodOrder(input: CreateOrderInput) {
         phone: data.customer.phone,
         ...data.shipping,
       },
+      trackingToken,
       notes: data.notes || null,
     }).returning();
 
@@ -181,6 +186,7 @@ export async function createCodOrder(input: CreateOrderInput) {
     codFeeBdt: COD_FEE,
     totalBdt: total,
     paymentMethod: "cod" as const,
+    trackingUrl: `${SITE_URL}/en/order/${number}/track?t=${trackingToken}`,
   };
   const { subject, html } = orderPlacedEmail(emailData);
   sendEmail({ to: data.customer.email, toName: data.customer.fullName, subject, html })

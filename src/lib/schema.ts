@@ -101,6 +101,9 @@ export const orders = pgTable("orders", {
   shippingTracking: text("shipping_tracking"),
   couponCode: text("coupon_code"),
   couponDiscountBdt: integer("coupon_discount_bdt").default(0).notNull(),
+  // Random hex token included in confirmation/shipping emails. The /order/[number]/track
+  // page requires either a matching ?t= query param OR a signed-in customer who owns the order.
+  trackingToken: text("tracking_token").notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
