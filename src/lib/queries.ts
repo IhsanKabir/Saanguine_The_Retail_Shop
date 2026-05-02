@@ -25,11 +25,19 @@ export async function getSegmentBySlug(id: string) {
 }
 
 // ─── Products ──────────────────────────────────────────────────────────
+import { gte, lte } from "drizzle-orm";
+
 export async function getLiveProducts(opts?: {
   segmentId?: string;
   tag?: string;
   limit?: number;
-  sort?: "featured" | "price-asc" | "price-desc" | "rating";
+  sort?: "featured" | "price-asc" | "price-desc" | "rating" | "newest";
+  minPrice?: number;
+  maxPrice?: number;
+  /** Filter to products that include any of the given colours (matches the jsonb colours array). */
+  colors?: string[];
+  /** Same as `colors` but for sizes. */
+  sizes?: string[];
 }) {
   const conds = [
     eq(products.status, "live"),
@@ -37,12 +45,22 @@ export async function getLiveProducts(opts?: {
   ];
   if (opts?.segmentId) conds.push(eq(products.segmentId, opts.segmentId));
   if (opts?.tag) conds.push(eq(products.tag, opts.tag));
+  if (typeof opts?.minPrice === "number") conds.push(gte(products.priceBdt, opts.minPrice));
+  if (typeof opts?.maxPrice === "number") conds.push(lte(products.priceBdt, opts.maxPrice));
+  if (opts?.colors && opts.colors.length > 0) {
+    // jsonb ?| array — true if any of the strings are present in the colours array.
+    conds.push(sql`${products.colors} ?| ${opts.colors}`);
+  }
+  if (opts?.sizes && opts.sizes.length > 0) {
+    conds.push(sql`${products.sizes} ?| ${opts.sizes}`);
+  }
 
   const orderBy = (() => {
     switch (opts?.sort) {
       case "price-asc":  return asc(products.priceBdt);
       case "price-desc": return desc(products.priceBdt);
       case "rating":     return desc(products.rating);
+      case "newest":     return desc(products.createdAt);
       default:           return asc(products.id);
     }
   })();

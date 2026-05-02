@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/lib/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin, requirePermission } from "@/lib/auth-utils";
 import { PERMISSIONS, type Permission, type AdminRole } from "@/lib/permissions";
@@ -204,6 +204,43 @@ export async function updateOrderStatus(orderId: string, status: typeof validSta
     payload: { from: before?.status ?? null, to: status },
   });
   revalidatePath("/admin", "layout");
+}
+
+const bulkStatusSchema = z.object({
+  orderIds: z.array(z.string().uuid()).min(1).max(200),
+  status: z.enum(validStatuses),
+});
+
+/**
+ * Apply the same status change to many orders at once. Used for the
+ * multi-select bulk-action workflow on /admin/orders. Each transition is
+ * logged individually so the per-order timeline still shows what happened.
+ */
+export async function bulkUpdateOrderStatus(input: z.infer<typeof bulkStatusSchema>) {
+  await requireAdmin();
+  const data = bulkStatusSchema.parse(input);
+
+  const before = await db.select({ id: schema.orders.id, status: schema.orders.status })
+    .from(schema.orders)
+    .where(inArray(schema.orders.id, data.orderIds));
+  if (before.length === 0) return { ok: false as const, error: "No matching orders." };
+
+  await db.update(schema.orders)
+    .set({ status: data.status })
+    .where(inArray(schema.orders.id, data.orderIds));
+
+  for (const o of before) {
+    if (o.status !== data.status) {
+      await logOrderEvent({
+        orderId: o.id,
+        type: "status_changed",
+        payload: { from: o.status, to: data.status, bulk: true },
+      });
+    }
+  }
+
+  revalidatePath("/[locale]/admin/orders", "page");
+  return { ok: true as const, updated: before.length };
 }
 
 const courierSchema = z.object({

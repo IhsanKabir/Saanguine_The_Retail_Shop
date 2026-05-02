@@ -30,14 +30,28 @@ const STATUS_FILTERS: { key: string; label: string }[] = [
   { key: "converted", label: "Converted" },
 ];
 
-type Props = { requests: PreorderRequest[]; segments: Segment[] };
+export type LinkedOrderInfo = {
+  id: string;
+  number: string;
+  status: string;
+  shippingCourier: string | null;
+  shippingTracking: string | null;
+};
 
-export default function PreordersClient({ requests, segments }: Props) {
+type Props = {
+  requests: PreorderRequest[];
+  segments: Segment[];
+  linkedOrders: Record<string, LinkedOrderInfo>;
+};
+
+export default function PreordersClient({ requests, segments, linkedOrders }: Props) {
   const [filter, setFilter] = useState<string>("all");
   const [selected, setSelected] = useState<PreorderRequest | null>(null);
   const segName = (id: string) => segments.find((s) => s.id === id)?.name ?? id;
 
   const visible = filter === "all" ? requests : requests.filter((r) => r.status === filter);
+  const linkedFor = (r: PreorderRequest): LinkedOrderInfo | undefined =>
+    r.convertedOrderId ? linkedOrders[r.convertedOrderId] : undefined;
 
   return (
     <>
@@ -99,6 +113,7 @@ export default function PreordersClient({ requests, segments }: Props) {
         <DetailDrawer
           request={selected}
           segmentName={segName(selected.segmentId)}
+          linkedOrder={linkedFor(selected)}
           onClose={() => setSelected(null)}
         />
       )}
@@ -107,12 +122,14 @@ export default function PreordersClient({ requests, segments }: Props) {
 }
 
 function DetailDrawer({
+  linkedOrder,
   request,
   segmentName,
   onClose,
 }: {
   request: PreorderRequest;
   segmentName: string;
+  linkedOrder?: LinkedOrderInfo;
   onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -330,7 +347,8 @@ function DetailDrawer({
           )}
           {request.status === "converted" && request.convertedOrderId && (
             <div style={{ marginTop: 16, padding: 14, background: "#eef7ee", border: "1px solid #4caf50", fontSize: 13, color: "#2e4f33" }}>
-              <b>Converted</b> — order created. See <a href="/admin/orders" style={{ color: "#2e7d32" }}>Orders</a>.
+              <b>Converted</b> — order <a href="/admin/orders" style={{ color: "#2e7d32", fontFamily: "var(--mono)" }}>{linkedOrder?.number ?? "created"}</a>.
+              <BespokePipeline linkedOrder={linkedOrder} />
             </div>
           )}
 
@@ -341,5 +359,67 @@ function DetailDrawer({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * 4-stage progress visualisation for a converted bespoke piece.
+ * Maps the linked order's status to:  Sourcing → Preparing → Shipped → Delivered.
+ * Renders nothing if no linked order yet.
+ */
+function BespokePipeline({ linkedOrder }: { linkedOrder?: LinkedOrderInfo }) {
+  if (!linkedOrder) return null;
+  // Order status -> pipeline index. Bespoke pieces start in 'cod_pending' which
+  // is "sourcing" for our purposes; the admin moves them through the standard
+  // status enum and the pipeline reflects it.
+  const STAGES: { key: string; label: string; statuses: string[] }[] = [
+    { key: "sourcing",  label: "Sourcing",  statuses: ["pending", "cod_pending"] },
+    { key: "preparing", label: "Preparing", statuses: ["paid", "processing"] },
+    { key: "shipped",   label: "Shipped",   statuses: ["shipped"] },
+    { key: "delivered", label: "Delivered", statuses: ["delivered"] },
+  ];
+  const idx = STAGES.findIndex((s) => s.statuses.includes(linkedOrder.status));
+  const current = idx < 0 ? 0 : idx;
+
+  return (
+    <div style={{ marginTop: 12, padding: "10px 12px", background: "white", border: "1px solid #c8e6c9" }}>
+      <div style={{ fontSize: 10, letterSpacing: ".2em", color: "#2e7d32", textTransform: "uppercase", marginBottom: 8 }}>Production pipeline</div>
+      <ol style={{ display: "flex", listStyle: "none", padding: 0, margin: 0, gap: 0, alignItems: "center" }}>
+        {STAGES.map((s, i) => {
+          const reached = i <= current;
+          const isCurrent = i === current && linkedOrder.status !== "cancelled" && linkedOrder.status !== "refunded";
+          return (
+            <li key={s.key} style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, color: reached ? "#2e7d32" : "var(--ink-soft)" }}>
+              <span style={{
+                width: 22, height: 22, borderRadius: "50%",
+                background: reached ? "#4caf50" : "transparent",
+                border: "1.5px solid " + (reached ? "#4caf50" : "var(--line)"),
+                color: reached ? "white" : "var(--ink-soft)",
+                display: "grid", placeItems: "center",
+                fontFamily: "var(--mono)", fontSize: 10,
+                fontWeight: isCurrent ? 700 : 400,
+              }}>
+                {reached ? "✓" : i + 1}
+              </span>
+              <span style={{ fontSize: 11, fontWeight: isCurrent ? 600 : 400 }}>{s.label}</span>
+              {i < STAGES.length - 1 && (
+                <span style={{ flex: 1, height: 1, background: i < current ? "#4caf50" : "var(--line)", marginLeft: 4 }} />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      {(linkedOrder.status === "cancelled" || linkedOrder.status === "refunded") && (
+        <p style={{ fontSize: 11, color: "var(--err)", margin: "8px 0 0" }}>
+          Order <b>{linkedOrder.status}</b>. The bespoke piece was not completed.
+        </p>
+      )}
+      {linkedOrder.shippingCourier && linkedOrder.shippingTracking && (
+        <p style={{ fontSize: 11, color: "var(--ink-soft)", margin: "8px 0 0" }}>
+          Courier: <b style={{ textTransform: "capitalize" }}>{linkedOrder.shippingCourier}</b>
+          <span className="mono" style={{ marginLeft: 8 }}>{linkedOrder.shippingTracking}</span>
+        </p>
+      )}
+    </div>
   );
 }

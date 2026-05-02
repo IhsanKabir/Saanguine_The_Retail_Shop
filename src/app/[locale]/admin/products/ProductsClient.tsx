@@ -72,9 +72,14 @@ export default function ProductsClient({ segments, products }: Props) {
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", marginBottom: 20 }}>
         <div><h1 className="admin-h1">Products</h1><p className="admin-sub">{products.length} pieces across {segments.length} segments.</p></div>
-        <button className="btn btn-primary btn-sm" onClick={() => setEditing(empty(segments[0]?.id || "clothing"))}>
-          <Icon name="check" size={14}/> New Product
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <a href="/admin/products/import" className="btn btn-ghost btn-sm" title="Bulk import from a CSV">
+            <Icon name="plus" size={12}/> Import CSV
+          </a>
+          <button className="btn btn-primary btn-sm" onClick={() => setEditing(empty(segments[0]?.id || "clothing"))}>
+            <Icon name="check" size={14}/> New Product
+          </button>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>

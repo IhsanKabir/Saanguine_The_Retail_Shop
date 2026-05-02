@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import type { Order, OrderEvent, OrderLine } from "@/lib/schema";
-import { updateOrderStatus, bookCourier, getOrderTimeline } from "@/lib/actions/admin";
+import { updateOrderStatus, bookCourier, getOrderTimeline, bulkUpdateOrderStatus } from "@/lib/actions/admin";
 import { formatBdt, formatDate } from "@/lib/utils";
 import Icon from "@/components/storefront/Icon";
 import RefundPanel from "./RefundPanel";
@@ -21,6 +21,44 @@ export default function OrdersClient({ orders, lines }: Props) {
   const [bookError, setBookError] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<OrderEvent[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
+
+  const toggleId = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleAllVisible = (visibleIds: string[], allOn: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOn) for (const id of visibleIds) next.delete(id);
+      else for (const id of visibleIds) next.add(id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+  const onBulk = async (status: typeof STATUSES[number]) => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Mark ${selectedIds.size} order${selectedIds.size === 1 ? "" : "s"} as ${status}?`)) return;
+    setBulkBusy(true);
+    setBulkMsg(null);
+    try {
+      const r = await bulkUpdateOrderStatus({ orderIds: Array.from(selectedIds), status });
+      if (r.ok) {
+        setBulkMsg(`Updated ${r.updated} order${r.updated === 1 ? "" : "s"} to ${status}.`);
+        clearSelection();
+      } else {
+        setBulkMsg(r.error);
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   // Load the timeline whenever a different order is opened.
   useEffect(() => {
@@ -76,15 +114,68 @@ export default function OrdersClient({ orders, lines }: Props) {
         ))}
       </div>
 
+      {(selectedIds.size > 0 || bulkMsg) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--purple-50)", border: "1px solid var(--purple-200)", marginBottom: 10, fontSize: 13 }}>
+          {selectedIds.size > 0 && (
+            <>
+              <b>{selectedIds.size} selected</b>
+              <span style={{ color: "var(--ink-soft)" }}>· bulk update to:</span>
+              {(["processing", "shipped", "delivered", "cancelled"] as const).map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  disabled={bulkBusy}
+                  onClick={() => onBulk(st)}
+                  style={{ padding: "4px 10px" }}
+                >
+                  {st}
+                </button>
+              ))}
+              <button type="button" className="btn btn-ghost btn-sm" onClick={clearSelection} style={{ marginLeft: "auto", padding: "4px 10px" }}>
+                Clear
+              </button>
+            </>
+          )}
+          {bulkMsg && selectedIds.size === 0 && (
+            <span style={{ color: "var(--ok)" }}>{bulkMsg} <button onClick={() => setBulkMsg(null)} style={{ marginLeft: 8, background: "none", border: "none", cursor: "pointer", color: "var(--ink-soft)" }}>✕</button></span>
+          )}
+        </div>
+      )}
+
       <div className="table">
         <table>
-          <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Courier</th><th>Date</th></tr></thead>
+          <thead>
+            <tr>
+              <th style={{ width: 28 }}>
+                <input
+                  type="checkbox"
+                  checked={list.length > 0 && list.every((o) => selectedIds.has(o.id))}
+                  onChange={() => {
+                    const visibleIds = list.map((o) => o.id);
+                    const allOn = visibleIds.every((id) => selectedIds.has(id));
+                    toggleAllVisible(visibleIds, allOn);
+                  }}
+                  aria-label="Select all visible orders"
+                />
+              </th>
+              <th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Courier</th><th>Date</th>
+            </tr>
+          </thead>
           <tbody>
             {list.map((o) => {
               const addr = o.shippingAddress as { fullName: string; phone: string };
               const itemCount = linesFor(o.id).reduce((s, l) => s + l.qty, 0);
               return (
                 <tr key={o.id} onClick={() => setSelected(o)} style={{ cursor: "pointer" }}>
+                  <td style={{ width: 28 }} onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(o.id)}
+                      onChange={() => toggleId(o.id)}
+                      aria-label={`Select order ${o.number}`}
+                    />
+                  </td>
                   <td style={{ fontFamily: "var(--mono)", color: "var(--purple-900)", fontWeight: 500 }}>{o.number}</td>
                   <td>
                     <div style={{ fontWeight: 500 }}>{addr.fullName}</div>
