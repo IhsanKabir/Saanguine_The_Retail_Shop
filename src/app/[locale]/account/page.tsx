@@ -58,7 +58,7 @@ export default async function AccountPage({ params }: Props) {
               {orders.map((o) => (
                 <tr key={o.id}>
                   <td style={{ fontFamily: "var(--mono)", color: "var(--purple-900)", fontWeight: 500 }}>{o.number}</td>
-                  <td>{formatDate(o.createdAt!, locale as "en"|"bn")}</td>
+                  <td>{o.createdAt ? formatDate(o.createdAt, locale as "en"|"bn") : "—"}</td>
                   <td>
                     <span className={"pill " + (o.status === "delivered" ? "pill-ok" : o.status === "shipped" ? "pill-info" : o.status === "cancelled" ? "pill-err" : "pill-warn")}>
                       {o.status}
