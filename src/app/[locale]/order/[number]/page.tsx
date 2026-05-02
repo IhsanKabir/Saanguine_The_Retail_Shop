@@ -3,9 +3,9 @@ import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/routing";
 import { db, schema } from "@/lib/db";
 import { parseShippingAddress } from "@/lib/schema";
+import WaxSeal from "@/components/storefront/WaxSeal";
 import { eq } from "drizzle-orm";
 import { formatBdt } from "@/lib/utils";
-import Icon from "@/components/storefront/Icon";
 
 type Props = { params: Promise<{ locale: string; number: string }> };
 
@@ -23,8 +23,8 @@ export default async function OrderConfirmation({ params }: Props) {
 
   return (
     <section className="section" style={{ maxWidth: 760, textAlign: "center", padding: "100px 32px 80px" }}>
-      <div style={{ color: "var(--gold)", marginBottom: 20, display: "inline-flex", padding: 20, border: "1px solid var(--gold)", borderRadius: "50%" }}>
-        <Icon name="check" size={36}/>
+      <div style={{ marginBottom: 28 }}>
+        <WaxSeal size={180} />
       </div>
       <div style={{ fontSize: 11, letterSpacing: ".4em", color: "var(--gold-deep)", marginBottom: 10, textTransform: "uppercase" }}>
         {t("checkout.orderConfirmed")}

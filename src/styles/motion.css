@@ -7,6 +7,19 @@
 @media (prefers-reduced-motion: reduce) {
   body, body * { cursor: auto !important; }
   #ssg-cursor-root { display: none !important; }
+  /* Pause every named animation we add for the oceanic register. */
+  .ssg-ornament svg,
+  .cur-ring::after { animation: none !important; }
+}
+
+/* Section ornaments — fineliner SVGs that breathe. 14s inhale-exhale. */
+.ssg-ornament svg {
+  animation: ssg-ornament-breathe 14s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes ssg-ornament-breathe {
+  0%, 100% { opacity: 0.78; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.03); }
 }
 
 #ssg-cursor-root { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
@@ -33,16 +46,42 @@
   transition: opacity .25s ease, transform .35s cubic-bezier(.2,.9,.3,1);
 }
 
-/* ===== Default — ring + dot ===== */
+/* ===== Default — soft ripple (oceanic register, replaces hard ring) =====
+ * Two stacked layers under .cur-ring so it reads as a tide-ripple, not a
+ * crosshair. The outer pulse breathes (4s cycle) so the cursor feels alive.
+ * `backdrop-filter: blur` produces the "moving through water" distortion
+ * exactly where the cursor sits — works on Chrome/Safari/Edge, gracefully
+ * degrades on Firefox where backdrop-filter isn't fully supported.
+ *
+ * Honoured by reduced-motion via the existing #ssg-cursor-root display:none
+ * higher up in this file. */
 .cur-ring {
-  width: 36px; height: 36px;
-  border: 1px solid var(--purple-900);
+  width: 28px; height: 28px;
+  border: 1px solid color-mix(in oklch, var(--purple-900) 70%, transparent);
   border-radius: 50%;
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+  box-shadow:
+    0 0 18px color-mix(in oklch, var(--purple-200) 30%, transparent),
+    inset 0 0 6px color-mix(in oklch, var(--purple-100) 25%, transparent);
+}
+.cur-ring::after {
+  content: "";
+  position: absolute; inset: -8px;
+  border: 1px solid color-mix(in oklch, var(--purple-900) 25%, transparent);
+  border-radius: 50%;
+  animation: ssg-cursor-pulse 4.2s ease-in-out infinite;
+}
+@keyframes ssg-cursor-pulse {
+  0%   { transform: scale(0.85); opacity: 0.55; }
+  50%  { transform: scale(1.18); opacity: 0.10; }
+  100% { transform: scale(0.85); opacity: 0.55; }
 }
 .cur-dot {
-  width: 4px; height: 4px;
+  width: 3px; height: 3px;
   background: var(--gold);
   border-radius: 50%;
+  box-shadow: 0 0 4px var(--gold);
 }
 #ssg-cursor[data-mode="default"] .cur-ring,
 #ssg-cursor[data-mode="default"] .cur-dot,

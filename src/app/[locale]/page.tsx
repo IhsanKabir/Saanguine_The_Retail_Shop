@@ -6,6 +6,8 @@ import ProductCard from "@/components/storefront/ProductCard";
 import Icon from "@/components/storefront/Icon";
 import NewsletterForm from "@/components/storefront/NewsletterForm";
 import RecentlyViewedStrip from "@/components/storefront/RecentlyViewedStrip";
+import HeroTide from "@/components/storefront/HeroTide";
+import Ornament from "@/components/storefront/Ornament";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -66,6 +68,7 @@ export default async function Home({ params }: Props) {
 
       {/* ─── Hero ─────────────────────────────────────────────────── */}
       <section className="hero" data-cursor="inkwell">
+        <HeroTide />
         <div className="hero-inner">
           <div>
             <div className="hero-kicker">{t("home.kicker")}</div>
@@ -121,6 +124,8 @@ export default async function Home({ params }: Props) {
           ))}
         </div>
       </section>
+
+      <Ornament variant="tide-line" />
 
       {/* ─── Departments / Wander the House ──────────────────────── */}
       {segs.length > 0 && (
@@ -239,6 +244,8 @@ export default async function Home({ params }: Props) {
         </div>
       </section>
 
+      <Ornament variant="spiral" size={64} />
+
       {/* ─── Bento · A small cabinet of curiosities ─────────────── */}
       {bento.length > 0 && (
         <section className="section" data-cursor="crosshair">
@@ -316,6 +323,8 @@ export default async function Home({ params }: Props) {
           </div>
         </div>
       </section>
+
+      <Ornament variant="frond" size={72} />
 
       {/* ─── Editor's Selection · House Favourites ──────────────── */}
       {eds.length > 0 && (
