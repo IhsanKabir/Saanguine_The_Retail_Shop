@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { db, schema } from "@/lib/db";
+import { parseShippingAddress } from "@/lib/schema";
 import { eq, desc, and, sum, count } from "drizzle-orm";
 import { setRequestLocale } from "next-intl/server";
 import { requirePermission } from "@/lib/auth-utils";
@@ -31,9 +32,10 @@ export default async function AdminCustomerDetailPage({ params }: Props) {
   if (orders.length === 0) notFound();
 
   const totalSpent = orders.reduce((s, o) => s + o.totalBdt, 0);
-  const customerName = (orders[0].shippingAddress as { fullName?: string } | null)?.fullName ?? null;
-  const customerPhone = (orders[0].shippingAddress as { phone?: string } | null)?.phone ?? orders[0].guestPhone ?? null;
-  const customerCity = (orders[0].shippingAddress as { city?: string } | null)?.city ?? null;
+  const firstAddr = parseShippingAddress(orders[0].shippingAddress);
+  const customerName = firstAddr.fullName ?? null;
+  const customerPhone = firstAddr.phone ?? orders[0].guestPhone ?? null;
+  const customerCity = firstAddr.city ?? null;
 
   // Reviews + preorders + refund-totals — gather in parallel.
   const [reviewRows, preorderRows, refundAgg] = await Promise.all([

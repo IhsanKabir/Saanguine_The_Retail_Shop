@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db, schema } from "@/lib/db";
+import { parseShippingAddress } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { setRequestLocale } from "next-intl/server";
 import { requirePermission } from "@/lib/auth-utils";
@@ -33,10 +34,7 @@ export default async function PackingSlipPage({ params }: Props) {
   const [order] = await db.select().from(schema.orders).where(eq(schema.orders.id, id)).limit(1);
   if (!order) notFound();
   const lines = await db.select().from(schema.orderLines).where(eq(schema.orderLines.orderId, order.id));
-  const addr = order.shippingAddress as {
-    fullName?: string; phone?: string;
-    line1?: string; line2?: string; area?: string; city?: string; postcode?: string;
-  };
+  const addr = parseShippingAddress(order.shippingAddress);
 
   return (
     <>

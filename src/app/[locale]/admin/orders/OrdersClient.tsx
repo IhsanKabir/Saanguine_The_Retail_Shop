@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import type { Order, OrderEvent, OrderLine } from "@/lib/schema";
+import { parseShippingAddress } from "@/lib/schema";
 import { updateOrderStatus, bookCourier, getOrderTimeline, bulkUpdateOrderStatus } from "@/lib/actions/admin";
 import { formatBdt, formatDate } from "@/lib/utils";
 import Icon from "@/components/storefront/Icon";
@@ -164,7 +165,7 @@ export default function OrdersClient({ orders, lines }: Props) {
           </thead>
           <tbody>
             {list.map((o) => {
-              const addr = o.shippingAddress as { fullName: string; phone: string };
+              const addr = parseShippingAddress(o.shippingAddress);
               const itemCount = linesFor(o.id).reduce((s, l) => s + l.qty, 0);
               return (
                 <tr key={o.id} onClick={() => setSelected(o)} style={{ cursor: "pointer" }}>
@@ -178,7 +179,7 @@ export default function OrdersClient({ orders, lines }: Props) {
                   </td>
                   <td style={{ fontFamily: "var(--mono)", color: "var(--purple-900)", fontWeight: 500 }}>{o.number}</td>
                   <td>
-                    <div style={{ fontWeight: 500 }}>{addr.fullName}</div>
+                    <div style={{ fontWeight: 500 }}>{addr.fullName ?? "—"}</div>
                     <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>{o.guestEmail}</div>
                   </td>
                   <td>{itemCount}</td>
@@ -227,13 +228,13 @@ export default function OrdersClient({ orders, lines }: Props) {
               <div className="panel" style={{ padding: 16, marginBottom: 14 }}>
                 <div className="pdp-label">Customer</div>
                 {(() => {
-                  const a = selected.shippingAddress as { fullName: string; phone: string; line1: string; area?: string; city: string; postcode?: string };
+                  const a = parseShippingAddress(selected.shippingAddress);
                   return (
                     <>
-                      <div style={{ fontWeight: 500 }}>{a.fullName}</div>
+                      <div style={{ fontWeight: 500 }}>{a.fullName ?? "—"}</div>
                       <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-                        {selected.guestEmail}<br/>{a.phone}<br/>
-                        {a.line1}<br/>{a.area ? a.area + ", " : ""}{a.city}{a.postcode ? " — " + a.postcode : ""}
+                        {selected.guestEmail}<br/>{a.phone ?? ""}<br/>
+                        {a.line1 ?? ""}<br/>{a.area ? a.area + ", " : ""}{a.city ?? ""}{a.postcode ? " — " + a.postcode : ""}
                       </div>
                     </>
                   );

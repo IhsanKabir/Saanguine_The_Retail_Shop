@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db, schema } from "@/lib/db";
+import { parseShippingAddress } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { setRequestLocale } from "next-intl/server";
 import { formatBdt, formatDate } from "@/lib/utils";
@@ -75,7 +76,7 @@ export default async function OrderTrackPage({ params, searchParams }: Props) {
   if (!tokenMatches && !ownerMatches) notFound();
 
   const lines = await db.select().from(schema.orderLines).where(eq(schema.orderLines.orderId, order.id)).catch(() => []);
-  const addr = order.shippingAddress as { fullName: string; phone: string; line1: string; area?: string; city: string; postcode?: string };
+  const addr = parseShippingAddress(order.shippingAddress);
 
   if (order.status === "cancelled" || order.status === "refunded") {
     return (
@@ -155,7 +156,7 @@ export default async function OrderTrackPage({ params, searchParams }: Props) {
       <div className="panel" style={{ marginTop: 24, padding: 20 }}>
         <div className="pdp-label">{t("Delivering to", "যেখানে পৌঁছানো হবে")}</div>
         <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.6, color: "var(--purple-900)" }}>
-          {addr.fullName}<br/>{addr.line1}<br/>{addr.area ? addr.area + ", " : ""}{addr.city}{addr.postcode ? " — " + addr.postcode : ""}<br/>{addr.phone}
+          {addr.fullName ?? "—"}<br/>{addr.line1 ?? ""}<br/>{addr.area ? addr.area + ", " : ""}{addr.city ?? ""}{addr.postcode ? " — " + addr.postcode : ""}<br/>{addr.phone ?? ""}
         </p>
       </div>
 
