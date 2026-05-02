@@ -1,12 +1,44 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { getSegmentBySlug, getLiveProducts, getHeroImagesFor } from "@/lib/queries";
 import { Link } from "@/i18n/routing";
 import ProductCard from "@/components/storefront/ProductCard";
 
+const BASE = (process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine-the-retail-shop.vercel.app").replace(/\/$/, "");
+
 type Props = {
   params: Promise<{ locale: string; segment: string }>;
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale, segment } = await params;
+  const seg = await getSegmentBySlug(segment).catch(() => null);
+  if (!seg || seg.hidden) return { title: "Not found" };
+  const isBn = locale === "bn";
+  const name = (isBn && seg.nameBn) || seg.name;
+  const blurb = (isBn && seg.blurbBn) || seg.blurb || `Pieces in ${name}, composed by Maison Saanguine.`;
+  const url = `${BASE}/${locale}/shop/${segment}`;
+  return {
+    title: name,
+    description: blurb,
+    alternates: {
+      canonical: url,
+      languages: {
+        en: `${BASE}/en/shop/${segment}`,
+        bn: `${BASE}/bn/shop/${segment}`,
+      },
+    },
+    openGraph: {
+      title: `${name} · Maison Saanguine`,
+      description: blurb,
+      url,
+      type: "website",
+      locale: isBn ? "bn_BD" : "en_BD",
+    },
+    twitter: { card: "summary_large_image", title: name, description: blurb },
+  };
+}
 
 const CURSOR_BY_SEGMENT: Record<string, string> = {
   clothing: "magnify",

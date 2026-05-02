@@ -9,31 +9,46 @@ import Icon from "@/components/storefront/Icon";
 import ProductCard from "@/components/storefront/ProductCard";
 import AddToBagButton from "@/components/storefront/AddToBagButton";
 import PdpGallery from "@/components/storefront/PdpGallery";
+import JsonLd from "@/components/seo/JsonLd";
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine.vercel.app";
+const BASE = (process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine-the-retail-shop.vercel.app").replace(/\/$/, "");
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
   const p = await getProductBySlug(slug).catch(() => null);
   if (!p) return { title: "Not found" };
+  const photos = await getProductImages(p.id).catch(() => []);
   const isBn = locale === "bn";
   const name = (isBn && p.nameBn) || p.name;
   const description = (isBn && p.descriptionBn) || p.description || "A piece from the maison.";
   const url = `${BASE}/${locale}/product/${slug}`;
+  const ogImage = photos[0]?.url;
   return {
     title: name,
     description,
     alternates: {
       canonical: url,
       languages: {
-        "en-BD": `${BASE}/en/product/${slug}`,
-        "bn-BD": `${BASE}/bn/product/${slug}`,
+        en: `${BASE}/en/product/${slug}`,
+        bn: `${BASE}/bn/product/${slug}`,
       },
     },
-    openGraph: { title: name, description, url, type: "website" },
-    twitter: { card: "summary_large_image", title: name, description },
+    openGraph: {
+      title: name,
+      description,
+      url,
+      type: "website",
+      locale: isBn ? "bn_BD" : "en_BD",
+      images: ogImage ? [{ url: ogImage, alt: name }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: name,
+      description,
+      images: ogImage ? [ogImage] : undefined,
+    },
   };
 }
 
@@ -58,18 +73,20 @@ export default async function ProductPage({ params }: Props) {
   const segName = seg ? ((isBn && seg.nameBn) || seg.name) : "";
   const segTag = seg ? ((isBn && seg.tagBn) || seg.tag) : "";
 
-  const jsonLd = {
+  const productLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name,
     sku: p.sku,
     description,
+    image: photos.length > 0 ? photos.map((ph) => ph.url) : undefined,
     offers: {
       "@type": "Offer",
       priceCurrency: "BDT",
       price: p.priceBdt,
       availability: p.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       url: `${BASE}/${locale}/product/${p.slug}`,
+      seller: { "@type": "Organization", name: "Maison Saanguine" },
     },
     aggregateRating: p.reviewCount > 0 ? {
       "@type": "AggregateRating",
@@ -79,9 +96,23 @@ export default async function ProductPage({ params }: Props) {
     brand: { "@type": "Brand", name: "Saanguine" },
   };
 
+  const crumbItems: Record<string, unknown>[] = [
+    { "@type": "ListItem", position: 1, name: "Maison", item: `${BASE}/${locale}` },
+  ];
+  if (seg) {
+    crumbItems.push({ "@type": "ListItem", position: 2, name: segName, item: `${BASE}/${locale}/shop/${seg.id}` });
+  }
+  crumbItems.push({ "@type": "ListItem", position: crumbItems.length + 1, name });
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbItems,
+  };
+
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={[productLd, breadcrumbLd]} />
       <div className="crumbs">
         <Link href="/">Maison</Link>
         {seg && (

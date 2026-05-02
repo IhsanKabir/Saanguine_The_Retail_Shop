@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, Cormorant_Garamond, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import JsonLd from "@/components/seo/JsonLd";
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine.vercel.app";
+const BASE = (process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine-the-retail-shop.vercel.app").replace(/\/$/, "");
 
 const inter = Inter({
   subsets: ["latin"],
@@ -42,12 +43,47 @@ export const metadata: Metadata = {
   formatDetection: { email: false, address: false, telephone: false },
 };
 
+const organizationLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Maison Saanguine",
+  alternateName: "Saanguine",
+  url: BASE,
+  logo: `${BASE}/logo.png`,
+  description: "Garments, flora & small ceremonies for the violet hour. A Bangladeshi maison, slowly assembled.",
+  email: "concierge@saanguine.com",
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: "Dhaka",
+    addressCountry: "BD",
+  },
+};
+
+const websiteLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "Saanguine Maison",
+  url: BASE,
+  inLanguage: ["en-BD", "bn-BD"],
+  potentialAction: {
+    "@type": "SearchAction",
+    target: {
+      "@type": "EntryPoint",
+      urlTemplate: `${BASE}/en/shop?q={search_term_string}`,
+    },
+    "query-input": "required name=search_term_string",
+  },
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Default lang="en"; the LocaleLayout below patches document.documentElement.lang
   // to match the active locale on each render via a tiny client effect.
   return (
     <html lang="en" className={`${inter.variable} ${cormorant.variable} ${jbMono.variable}`} suppressHydrationWarning>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <JsonLd data={[organizationLd, websiteLd]} />
+        {children}
+      </body>
     </html>
   );
 }
