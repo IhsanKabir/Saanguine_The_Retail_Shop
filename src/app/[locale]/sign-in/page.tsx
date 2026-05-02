@@ -61,7 +61,7 @@ function SignInInner() {
     setInfo("Check your inbox — we sent you a sign-in link.");
   };
 
-  const onOAuth = async (provider: "google" | "facebook") => {
+  const onOAuth = async (provider: "google") => {
     setError(null);
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.auth.signInWithOAuth({
@@ -85,48 +85,26 @@ function SignInInner() {
       </p>
 
       {/* OAuth providers */}
-      <div style={{ display: "grid", gap: 10 }}>
-        <button
-          type="button"
-          onClick={() => onOAuth("google")}
-          className="btn btn-block"
-          style={{
-            background: "white",
-            color: "#3a2a64",
-            border: "1px solid var(--line)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            padding: "12px 16px",
-            fontSize: 14,
-            fontWeight: 500,
-          }}
-        >
-          <GoogleIcon />
-          Continue with Google
-        </button>
-        <button
-          type="button"
-          onClick={() => onOAuth("facebook")}
-          className="btn btn-block"
-          style={{
-            background: "#1877F2",
-            color: "white",
-            border: "1px solid #1877F2",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            padding: "12px 16px",
-            fontSize: 14,
-            fontWeight: 500,
-          }}
-        >
-          <FacebookIcon />
-          Continue with Facebook
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => onOAuth("google")}
+        className="btn btn-block"
+        style={{
+          background: "white",
+          color: "#3a2a64",
+          border: "1px solid var(--line)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          padding: "12px 16px",
+          fontSize: 14,
+          fontWeight: 500,
+        }}
+      >
+        <GoogleIcon />
+        Continue with Google
+      </button>
 
       {/* Divider */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0", color: "var(--ink-soft)", fontSize: 11, letterSpacing: ".15em" }}>
@@ -216,10 +194,3 @@ function GoogleIcon() {
   );
 }
 
-function FacebookIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="white">
-      <path d="M24 12.073c0-6.627-5.373-12-12-12S0 5.446 0 12.073c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-    </svg>
-  );
-}
