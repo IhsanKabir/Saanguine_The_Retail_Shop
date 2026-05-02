@@ -5,6 +5,8 @@ import { db, schema } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
 import { formatBdt, formatDate } from "@/lib/utils";
 import { signOut } from "@/lib/actions/auth";
+import { listMyAddresses } from "@/lib/actions/addresses";
+import AddressBook from "./AddressBook";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +18,15 @@ export default async function AccountPage({ params }: Props) {
   const t = await getTranslations();
   const user = await requireUser();
 
-  const orders = await db.select()
-    .from(schema.orders)
-    .where(eq(schema.orders.guestEmail, user.email!))
-    .orderBy(desc(schema.orders.createdAt))
-    .limit(20)
-    .catch(() => []);
+  const [orders, addresses] = await Promise.all([
+    db.select()
+      .from(schema.orders)
+      .where(eq(schema.orders.guestEmail, user.email!))
+      .orderBy(desc(schema.orders.createdAt))
+      .limit(20)
+      .catch(() => []),
+    listMyAddresses().catch(() => []),
+  ]);
 
   return (
     <section className="section" style={{ maxWidth: 900 }}>
@@ -67,6 +72,8 @@ export default async function AccountPage({ params }: Props) {
           </table>
         </div>
       )}
+
+      <AddressBook addresses={addresses} />
     </section>
   );
 }

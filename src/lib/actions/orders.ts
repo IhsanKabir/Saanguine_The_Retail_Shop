@@ -10,6 +10,7 @@ import { sendSms } from "@/lib/sms/ssl-wireless";
 import { trackEvent } from "@/lib/events";
 import { validateCoupon, recordCouponRedemption } from "./coupons";
 import { formatBdt } from "@/lib/utils";
+import { logOrderEvent } from "@/lib/order-events";
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine-the-retail-shop.vercel.app").replace(/\/$/, "");
 
@@ -159,6 +160,14 @@ export async function createCodOrder(input: CreateOrderInput) {
       });
     }
     return [o];
+  });
+
+  // Log the creation event before any side-effects so the timeline starts cleanly.
+  await logOrderEvent({
+    orderId: order.id,
+    type: "created",
+    payload: { number, total: total, payment: "cod", channel: "storefront" },
+    actor: null,                        // customer-placed; no admin actor
   });
 
   // 5. Send email + SMS confirmations (best effort, never throw)

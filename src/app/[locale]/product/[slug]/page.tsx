@@ -10,6 +10,12 @@ import ProductCard from "@/components/storefront/ProductCard";
 import AddToBagButton from "@/components/storefront/AddToBagButton";
 import PdpGallery from "@/components/storefront/PdpGallery";
 import JsonLd from "@/components/seo/JsonLd";
+import ReviewsSection from "@/components/storefront/ReviewsSection";
+import NotifyMeButton from "@/components/storefront/NotifyMeButton";
+import { listApprovedReviews } from "@/lib/actions/reviews";
+import { getCurrentUser } from "@/lib/auth-utils";
+import { db, schema } from "@/lib/db";
+import { and, eq, sql } from "drizzle-orm";
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
@@ -62,10 +68,33 @@ export default async function ProductPage({ params }: Props) {
   const p = await getProductBySlug(slug).catch(() => null);
   if (!p) notFound();
   const seg = p.segmentId ? await getSegmentBySlug(p.segmentId).catch(() => null) : null;
-  const [related, photos] = await Promise.all([
+  const [related, photos, approvedReviews, currentUser] = await Promise.all([
     p.segmentId ? getRelatedProducts(p.id, p.segmentId).catch(() => []) : Promise.resolve([]),
     getProductImages(p.id).catch(() => []),
+    listApprovedReviews(p.id).catch(() => []),
+    getCurrentUser().catch(() => null),
   ]);
+
+  // Eligibility for writing a review: signed-in customer with a delivered order
+  // of this product, who has not already written one.
+  let canWriteReview = false;
+  let signedInButIneligible = false;
+  if (currentUser) {
+    const eligible = await db.execute<{ id: string }>(sql`
+      select ${schema.orders.id} as id
+      from ${schema.orders}
+      join ${schema.orderLines} on ${schema.orderLines.orderId} = ${schema.orders.id}
+      where ${schema.orders.customerId} = ${currentUser.id}
+        and ${schema.orders.status} = 'delivered'
+        and ${schema.orderLines.productId} = ${p.id}
+      limit 1
+    `).catch(() => []);
+    const alreadyReviewed = await db.select({ id: schema.reviews.id }).from(schema.reviews)
+      .where(and(eq(schema.reviews.customerId, currentUser.id), eq(schema.reviews.productId, p.id)))
+      .limit(1).catch(() => []);
+    canWriteReview = eligible.length > 0 && alreadyReviewed.length === 0;
+    signedInButIneligible = !canWriteReview;
+  }
 
   const isBn = locale === "bn";
   const name = (isBn && p.nameBn) || p.name;
@@ -153,20 +182,28 @@ export default async function ProductPage({ params }: Props) {
           <div style={{ color: "var(--ink-soft)", fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
             {description}
           </div>
-          <AddToBagButton
-            product={{
-              productId: p.id,
-              slug: p.slug,
-              sku: p.sku,
-              name,
-              priceBdt: p.priceBdt,
-              cat: p.segmentId || "clothing",
-            }}
-            colors={(p.colors as string[] | null) || []}
-            sizes={(p.sizes as string[] | null) || []}
-          />
+          {p.stock > 0 ? (
+            <AddToBagButton
+              product={{
+                productId: p.id,
+                slug: p.slug,
+                sku: p.sku,
+                name,
+                priceBdt: p.priceBdt,
+                cat: p.segmentId || "clothing",
+              }}
+              colors={(p.colors as string[] | null) || []}
+              sizes={(p.sizes as string[] | null) || []}
+            />
+          ) : (
+            <NotifyMeButton
+              productId={p.id}
+              productName={name}
+              defaultEmail={currentUser?.email ?? ""}
+            />
+          )}
           <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 8 }}>
-            {p.stock < 10 ? t("pdp.remaining", { count: p.stock }) : t("pdp.inStock")}
+            {p.stock === 0 ? "Currently out of stock" : p.stock < 10 ? t("pdp.remaining", { count: p.stock }) : t("pdp.inStock")}
           </div>
           <div className="pdp-feats">
             <div className="pdp-feat"><Icon name="arrow" size={18} /><div><b>{t("pdp.freeShipping")}</b>{t("pdp.freeShippingNote")}</div></div>
@@ -176,6 +213,13 @@ export default async function ProductPage({ params }: Props) {
           </div>
         </div>
       </section>
+      <ReviewsSection
+        productId={p.id}
+        reviews={approvedReviews}
+        canWrite={canWriteReview}
+        signedInButIneligible={signedInButIneligible}
+        signInHref={`/${locale}/sign-in?next=${encodeURIComponent(`/${locale}/product/${p.slug}`)}`}
+      />
       {related.length > 0 && (
         <section className="section">
           <div className="section-hd">

@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { createClient } from "@supabase/supabase-js";
 import { formatBdt, formatDate } from "@/lib/utils";
 import { requirePermission } from "@/lib/auth-utils";
+import Link from "next/link";
 
 type CustomerRow = {
   email: string;
@@ -99,16 +100,18 @@ export default async function AdminCustomersPage() {
             <thead><tr><th>Customer</th><th>Email</th><th>Phone</th><th>City</th><th>Orders</th>{canSeeRevenue && <th>Spend</th>}<th>Last order</th><th>Tier</th></tr></thead>
             <tbody>
               {customers.map((c) => (
-                <tr key={c.email}>
+                <tr key={c.email} style={{ cursor: "pointer" }}>
                   <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Link href={`/admin/customers/${encodeURIComponent(c.email)}`} style={{ display: "flex", alignItems: "center", gap: 10, color: "inherit", textDecoration: "none" }}>
                       <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--purple-100)", color: "var(--purple-900)", display: "grid", placeItems: "center", fontFamily: "var(--serif)", fontSize: 13, fontWeight: 600 }}>
                         {(c.fullName || c.email).split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase()}
                       </div>
                       <span style={{ fontWeight: 500 }}>{c.fullName || c.email.split("@")[0]}</span>
-                    </div>
+                    </Link>
                   </td>
-                  <td style={{ color: "var(--ink-soft)", fontSize: 12 }}>{c.email}</td>
+                  <td style={{ color: "var(--ink-soft)", fontSize: 12 }}>
+                    <Link href={`/admin/customers/${encodeURIComponent(c.email)}`} style={{ color: "inherit" }}>{c.email}</Link>
+                  </td>
                   <td style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{c.phone || "—"}</td>
                   <td>{c.city || "—"}</td>
                   <td>{c.orderCount}</td>

@@ -3,10 +3,16 @@
 import { useState, useTransition } from "react";
 import type { Product, Segment } from "@/lib/schema";
 import { adjustStock } from "@/lib/actions/admin";
+import { notifyBackInStock } from "@/lib/actions/stock-notify";
 import { formatBdt } from "@/lib/utils";
 import Composition from "@/components/storefront/Composition";
 
-type Props = { products: Product[]; segments: Segment[]; canSeeRevenue: boolean };
+type Props = {
+  products: Product[];
+  segments: Segment[];
+  canSeeRevenue: boolean;
+  pendingNotifs: Record<string, number>;
+};
 
 type StockHealth = "out" | "critical" | "low" | "healthy";
 function healthOf(stock: number): StockHealth {
@@ -23,12 +29,28 @@ const HEALTH_PILL: Record<StockHealth, string> = {
   out: "pill-err", critical: "pill-err", low: "pill-warn", healthy: "pill-ok",
 };
 
-export default function InventoryClient({ products, segments, canSeeRevenue }: Props) {
+export default function InventoryClient({ products, segments, canSeeRevenue, pendingNotifs }: Props) {
   const [filter, setFilter] = useState<"all" | StockHealth>("all");
   const [adjusting, setAdjusting] = useState<{ id: string; name: string; current: number } | null>(null);
   const [delta, setDelta] = useState("");
   const [reason, setReason] = useState("restock");
+  const [busyNotifyId, setBusyNotifyId] = useState<string | null>(null);
+  const [notifyResult, setNotifyResult] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  const onNotify = (productId: string) => {
+    const count = pendingNotifs[productId] ?? 0;
+    if (count === 0) return;
+    if (!confirm(`Send back-in-stock email to ${count} subscriber${count === 1 ? "" : "s"}?`)) return;
+    setBusyNotifyId(productId);
+    setNotifyResult(null);
+    startTransition(async () => {
+      const r = await notifyBackInStock(productId);
+      setBusyNotifyId(null);
+      if (r.ok) setNotifyResult(`Notified ${r.notified} subscriber${r.notified === 1 ? "" : "s"}.`);
+      else setNotifyResult(`Could not notify: ${r.error}`);
+    });
+  };
 
   const counts = products.reduce(
     (acc, p) => { acc[healthOf(p.stock)]++; return acc; },
@@ -59,6 +81,11 @@ export default function InventoryClient({ products, segments, canSeeRevenue }: P
       <p className="admin-sub">
         {products.length} products · {totalUnits} units{canSeeRevenue && <> · {formatBdt(totalValue)} retail value</>}.
       </p>
+      {notifyResult && (
+        <div style={{ marginBottom: 12, padding: 10, background: "#eef7ee", border: "1px solid #4caf50", fontSize: 13 }}>
+          {notifyResult}
+        </div>
+      )}
 
       <div className="stat-grid" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
         {(["all", "healthy", "low", "critical", "out"] as const).map((k) => (
@@ -93,8 +120,27 @@ export default function InventoryClient({ products, segments, canSeeRevenue }: P
                   <td>{seg?.name || "—"}</td>
                   <td style={{ fontWeight: 500, color: h === "critical" || h === "out" ? "var(--err)" : "inherit" }}>{p.stock}</td>
                   {canSeeRevenue && <td>{formatBdt(p.priceBdt)}</td>}
-                  <td><span className={"pill " + HEALTH_PILL[h]}>{HEALTH_LABEL[h]}</span></td>
+                  <td>
+                    <span className={"pill " + HEALTH_PILL[h]}>{HEALTH_LABEL[h]}</span>
+                    {pendingNotifs[p.id] > 0 && (
+                      <span title={`${pendingNotifs[p.id]} customer${pendingNotifs[p.id] === 1 ? "" : "s"} asked to be notified`}
+                            style={{ marginLeft: 6, fontSize: 10, fontFamily: "var(--mono)", color: "var(--gold-deep)" }}>
+                        · {pendingNotifs[p.id]} watching
+                      </span>
+                    )}
+                  </td>
                   <td style={{ textAlign: "right" }}>
+                    {p.stock > 0 && pendingNotifs[p.id] > 0 && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ marginRight: 6, borderColor: "var(--gold-deep)", color: "var(--gold-deep)" }}
+                        onClick={() => onNotify(p.id)}
+                        disabled={busyNotifyId === p.id}
+                        title="Email everyone who asked to be notified"
+                      >
+                        {busyNotifyId === p.id ? "Sending…" : `Notify ${pendingNotifs[p.id]}`}
+                      </button>
+                    )}
                     <button className="btn btn-ghost btn-sm" onClick={() => { setAdjusting({ id: p.id, name: p.name, current: p.stock }); setDelta(""); setReason("restock"); }}>
                       Adjust
                     </button>

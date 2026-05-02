@@ -133,6 +133,9 @@ export const reviews = pgTable("reviews", {
   body: text("body"),
   photoUrls: jsonb("photo_urls").$type<string[]>().default([]),
   helpfulCount: integer("helpful_count").default(0).notNull(),
+  status: text("status").default("pending").notNull(),
+  // 'pending' | 'approved' | 'rejected'
+  rejectionReason: text("rejection_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -220,6 +223,48 @@ export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
   value: jsonb("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── Refunds ───────────────────────────────────────────────────────────
+export const refunds = pgTable("refunds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").notNull().references(() => orders.id),
+  amountBdt: integer("amount_bdt").notNull(),
+  reason: text("reason").notNull(),
+  method: text("method").notNull(),
+  // 'bkash' | 'bank' | 'cash' | 'card'
+  recipientInfo: text("recipient_info"),
+  processedBy: uuid("processed_by"),
+  processedByEmail: text("processed_by_email"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type Refund = typeof refunds.$inferSelect;
+
+// ─── Order events (append-only timeline) ───────────────────────────────
+export const orderEvents = pgTable("order_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orderId: uuid("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  // 'created' | 'status_changed' | 'courier_booked' | 'refund_issued'
+  // | 'note_added' | 'email_sent' | 'sms_sent' | 'payment_received'
+  payload: jsonb("payload").default({}).notNull(),
+  actorId: uuid("actor_id"),
+  actorEmail: text("actor_email"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type OrderEvent = typeof orderEvents.$inferSelect;
+
+// ─── Notify-me-when-back-in-stock ──────────────────────────────────────
+export const stockNotifications = pgTable("stock_notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  customerId: uuid("customer_id"),
+  email: text("email").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  notifiedAt: timestamp("notified_at", { withTimezone: true }),
 });
 
 // ─── Pre-order requests (bespoke / sourced-to-order) ───────────────────

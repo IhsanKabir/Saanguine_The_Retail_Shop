@@ -13,6 +13,7 @@ import { createSteadfastOrder } from "@/lib/shipping/steadfast";
 import { sendEmail } from "@/lib/email/brevo";
 import { orderShippedEmail, type OrderEmailLine } from "@/lib/email/templates";
 import { sendSms } from "@/lib/sms/ssl-wireless";
+import { logOrderEvent, listOrderEvents } from "@/lib/order-events";
 
 // ─── Segments ──────────────────────────────────────────────────────────
 const segSchema = z.object({
@@ -187,9 +188,21 @@ export async function adjustStock(id: string, delta: number, reason: string) {
 // ─── Orders ────────────────────────────────────────────────────────────
 const validStatuses = ["pending","cod_pending","paid","processing","shipped","delivered","cancelled","refunded"] as const;
 
+/** Public-to-admin wrapper around the order events log. Permission-gated. */
+export async function getOrderTimeline(orderId: string) {
+  await requirePermission("orders");
+  return listOrderEvents(orderId);
+}
+
 export async function updateOrderStatus(orderId: string, status: typeof validStatuses[number]) {
   await requireAdmin();
+  const [before] = await db.select({ status: schema.orders.status }).from(schema.orders).where(eq(schema.orders.id, orderId));
   await db.update(schema.orders).set({ status }).where(eq(schema.orders.id, orderId));
+  await logOrderEvent({
+    orderId,
+    type: "status_changed",
+    payload: { from: before?.status ?? null, to: status },
+  });
   revalidatePath("/admin", "layout");
 }
 
@@ -250,6 +263,17 @@ export async function bookCourier(input: z.infer<typeof courierSchema>) {
     shippingCourier: data.courier,
     shippingTracking: trackingCode,
   }).where(eq(schema.orders.id, order.id));
+
+  await logOrderEvent({
+    orderId: order.id,
+    type: "courier_booked",
+    payload: { courier: data.courier, tracking: trackingCode },
+  });
+  await logOrderEvent({
+    orderId: order.id,
+    type: "status_changed",
+    payload: { from: order.status, to: "shipped" },
+  });
 
   // Notify customer (best-effort)
   if (order.guestEmail) {

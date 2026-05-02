@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import type { Order, OrderLine } from "@/lib/schema";
-import { updateOrderStatus, bookCourier } from "@/lib/actions/admin";
+import { useState, useEffect, useTransition } from "react";
+import type { Order, OrderEvent, OrderLine } from "@/lib/schema";
+import { updateOrderStatus, bookCourier, getOrderTimeline } from "@/lib/actions/admin";
 import { formatBdt, formatDate } from "@/lib/utils";
 import Icon from "@/components/storefront/Icon";
+import RefundPanel from "./RefundPanel";
 
 type Props = { orders: Order[]; lines: OrderLine[] };
 
@@ -18,6 +19,18 @@ export default function OrdersClient({ orders, lines }: Props) {
   const [pathaoCity, setPathaoCity] = useState("1");
   const [pathaoZone, setPathaoZone] = useState("");
   const [bookError, setBookError] = useState<string | null>(null);
+  const [timeline, setTimeline] = useState<OrderEvent[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+
+  // Load the timeline whenever a different order is opened.
+  useEffect(() => {
+    if (!selected) { setTimeline([]); return; }
+    setTimelineLoading(true);
+    getOrderTimeline(selected.id)
+      .then(setTimeline)
+      .catch(() => setTimeline([]))
+      .finally(() => setTimelineLoading(false));
+  }, [selected?.id]);
 
   const list = orders.filter((o) => filter === "all" || o.status === filter);
   const linesFor = (orderId: string) => lines.filter((l) => l.orderId === orderId);
@@ -29,14 +42,24 @@ export default function OrdersClient({ orders, lines }: Props) {
           <h1 className="admin-h1">Orders</h1>
           <p className="admin-sub">{orders.length} total · {orders.filter((o) => o.status === "cod_pending").length} awaiting fulfilment.</p>
         </div>
-        <a
-          href="/api/admin/orders/export"
-          className="btn btn-ghost btn-sm"
-          title="Download all orders as a CSV (one row per line item)"
-          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
-        >
-          <Icon name="arrow" size={12} /> Export CSV
-        </a>
+        <div style={{ display: "flex", gap: 8 }}>
+          <a
+            href="/admin/orders/new"
+            className="btn btn-ghost btn-sm"
+            title="Create a phone-in order on a customer's behalf"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <Icon name="plus" size={12} /> New order
+          </a>
+          <a
+            href="/api/admin/orders/export"
+            className="btn btn-ghost btn-sm"
+            title="Download all orders as a CSV (one row per line item)"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
+            <Icon name="arrow" size={12} /> Export CSV
+          </a>
+        </div>
       </div>
 
       <div className="stat-grid" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
@@ -96,7 +119,18 @@ export default function OrdersClient({ orders, lines }: Props) {
                   Placed {formatDate(selected.createdAt!)}
                 </div>
               </div>
-              <button className="icon-btn" onClick={() => setSelected(null)}><Icon name="x"/></button>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <a
+                  href={`/en/admin/orders/${selected.id}/pick`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost btn-sm"
+                  title="Open the printable packing slip in a new tab"
+                >
+                  Packing slip ↗
+                </a>
+                <button className="icon-btn" onClick={() => setSelected(null)}><Icon name="x"/></button>
+              </div>
             </div>
             <div className="drawer-body" style={{ padding: "20px 24px" }}>
               <div className="panel" style={{ padding: 16, marginBottom: 14 }}>
@@ -136,6 +170,8 @@ export default function OrdersClient({ orders, lines }: Props) {
                       onClick={() => startTransition(async () => {
                         await updateOrderStatus(selected.id, st);
                         setSelected({ ...selected, status: st });
+                        // Refresh timeline so the new event appears immediately.
+                        getOrderTimeline(selected.id).then(setTimeline).catch(() => {});
                       })}
                       style={{ padding: "5px 10px", fontSize: 11 }}>
                       {st}
@@ -143,6 +179,17 @@ export default function OrdersClient({ orders, lines }: Props) {
                   ))}
                 </div>
               </div>
+
+              <RefundPanel
+                orderId={selected.id}
+                orderTotalBdt={selected.totalBdt}
+                onIssued={() => {
+                  // Refresh the timeline so the new refund event appears.
+                  getOrderTimeline(selected.id).then(setTimeline).catch(() => {});
+                }}
+              />
+
+              <Timeline events={timeline} loading={timelineLoading} />
 
               {selected.shippingCourier ? (
                 <div className="panel" style={{ padding: 16, background: "var(--purple-50)" }}>
@@ -192,5 +239,59 @@ export default function OrdersClient({ orders, lines }: Props) {
         </>
       )}
     </>
+  );
+}
+
+const EVENT_LABEL: Record<string, string> = {
+  created: "Order placed",
+  status_changed: "Status changed",
+  courier_booked: "Courier booked",
+  refund_issued: "Refund issued",
+  note_added: "Note added",
+  email_sent: "Email sent",
+  sms_sent: "SMS sent",
+  payment_received: "Payment received",
+};
+
+function Timeline({ events, loading }: { events: OrderEvent[]; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="panel" style={{ padding: 16, marginTop: 14 }}>
+        <div className="pdp-label">Timeline</div>
+        <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>Loading…</p>
+      </div>
+    );
+  }
+  if (events.length === 0) return null;
+
+  return (
+    <div className="panel" style={{ padding: 16, marginTop: 14 }}>
+      <div className="pdp-label">Timeline</div>
+      <ol style={{ listStyle: "none", padding: 0, margin: "8px 0 0" }}>
+        {events.map((e) => {
+          const p = (e.payload as Record<string, unknown>) ?? {};
+          const date = new Date(e.createdAt);
+          let detail: string | null = null;
+          if (e.type === "status_changed") detail = `${p.from ?? "—"} → ${p.to ?? "—"}`;
+          else if (e.type === "courier_booked") detail = `${p.courier ?? ""} · ${p.tracking ?? ""}`.trim();
+          else if (e.type === "refund_issued") detail = `${typeof p.amount === "number" ? `৳${(p.amount as number).toLocaleString("en-IN")}` : ""}${p.method ? ` · ${p.method}` : ""}${p.reason ? ` — ${p.reason}` : ""}`;
+          else if (e.type === "note_added" && typeof p.note === "string") detail = p.note;
+          return (
+            <li key={e.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <b style={{ color: "var(--purple-900)" }}>{EVENT_LABEL[e.type] ?? e.type}</b>
+                <span style={{ color: "var(--ink-soft)", fontFamily: "var(--mono)", fontSize: 10 }}>
+                  {date.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                </span>
+              </div>
+              {detail && <div style={{ color: "var(--ink-soft)", marginTop: 2, whiteSpace: "pre-wrap" }}>{detail}</div>}
+              {e.actorEmail && (
+                <div style={{ color: "var(--ink-soft)", marginTop: 2, fontSize: 10 }}>by {e.actorEmail}</div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
