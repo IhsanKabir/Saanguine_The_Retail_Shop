@@ -48,12 +48,24 @@
 .seg-btn:disabled { opacity: .3; cursor: not-allowed; }
 .seg-btn.danger:hover { color: var(--err); border-color: var(--err); }
 
+/* Admin modals — soft scale + fade entrance, oceanic register.
+ * Origin point at the centre so it reads as a panel rising into focus rather
+ * than dropping in. Reduced-motion handled at the bottom of this file. */
 .seg-modal {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: 640px; max-width: calc(100vw - 32px); max-height: 90vh;
   background: white; z-index: 101;
   display: flex; flex-direction: column;
   box-shadow: 0 30px 80px -20px rgba(40,20,80,.4);
+  animation: ssg-modal-in .42s cubic-bezier(.16,.84,.32,1);
+}
+.seg-confirm { animation: ssg-modal-in .42s cubic-bezier(.16,.84,.32,1); }
+@keyframes ssg-modal-in {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.96); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce){
+  .seg-modal, .seg-confirm { animation: none; }
 }
 .seg-modal-hd {
   padding: 22px 28px; border-bottom: 1px solid var(--line);

@@ -7,14 +7,35 @@ import { formatBdt } from "@/lib/utils";
 import Composition from "./Composition";
 import Icon from "./Icon";
 import CouponInput from "./CouponInput";
+import { useState, useCallback } from "react";
 
 const FREE_THRESHOLD = 3000;
+// Matches the `ssg-cart-line-out` keyframe duration in motion.css. Keeping
+// this as a constant so the JS delay and CSS duration stay in sync.
+const CART_LINE_OUT_MS = 280;
 
 export default function CartDrawer() {
   const t = useTranslations();
   const locale = useLocale() as "en" | "bn";
   const router = useRouter();
   const { items, saved, open, closeDrawer, inc, dec, remove, subtotalBdt, itemKey, coupon, saveForLater, moveToCart, removeSaved } = useCart();
+  // Tracks keys currently animating out so the line stays mounted until the
+  // CSS animation finishes. Cleared once the underlying cart state catches up.
+  const [leaving, setLeaving] = useState<Set<string>>(new Set());
+  const animateAway = useCallback(
+    (k: string, action: (k: string) => void) => {
+      setLeaving((s) => new Set(s).add(k));
+      window.setTimeout(() => {
+        action(k);
+        setLeaving((s) => {
+          const n = new Set(s);
+          n.delete(k);
+          return n;
+        });
+      }, CART_LINE_OUT_MS);
+    },
+    [],
+  );
   if (!open) return null;
   const discount = coupon?.discountBdt ?? 0;
   const afterDiscount = Math.max(0, subtotalBdt - discount);
@@ -59,8 +80,9 @@ export default function CartDrawer() {
 
               {items.map((i) => {
                 const k = itemKey(i);
+                const isLeaving = leaving.has(k);
                 return (
-                  <div key={k} className="cart-line">
+                  <div key={k} className={"cart-line" + (isLeaving ? " removing" : "")}>
                     <Composition cat={i.cat} sku={i.sku} name={i.name} small style={{ aspectRatio: "3/4" }} />
                     <div>
                       <Link href={`/product/${i.slug}`} className="name" onClick={closeDrawer}>
@@ -75,8 +97,8 @@ export default function CartDrawer() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
-                        <div className="rm" onClick={() => remove(k)} role="button" tabIndex={0}>{t("cart.remove")}</div>
-                        <div className="rm" onClick={() => saveForLater(k)} role="button" tabIndex={0} style={{ color: "var(--purple-700)" }}>
+                        <div className="rm" onClick={() => animateAway(k, remove)} role="button" tabIndex={0}>{t("cart.remove")}</div>
+                        <div className="rm" onClick={() => animateAway(k, saveForLater)} role="button" tabIndex={0} style={{ color: "var(--purple-700)" }}>
                           Save for later
                         </div>
                       </div>
@@ -95,17 +117,18 @@ export default function CartDrawer() {
               </div>
               {saved.map((i) => {
                 const k = itemKey(i);
+                const isLeaving = leaving.has(k);
                 return (
-                  <div key={k} className="cart-line" style={{ opacity: 0.85 }}>
+                  <div key={k} className={"cart-line" + (isLeaving ? " removing" : "")} style={{ opacity: 0.85 }}>
                     <Composition cat={i.cat} sku={i.sku} name={i.name} small style={{ aspectRatio: "3/4" }} />
                     <div>
                       <Link href={`/product/${i.slug}`} className="name" onClick={closeDrawer}>{i.name}</Link>
                       <div className="meta">{i.color || ""}{i.size ? ` · ${i.size}` : ""}</div>
                       <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                        <div className="rm" onClick={() => moveToCart(k)} role="button" tabIndex={0} style={{ color: "var(--purple-900)" }}>
+                        <div className="rm" onClick={() => animateAway(k, moveToCart)} role="button" tabIndex={0} style={{ color: "var(--purple-900)" }}>
                           Move to bag
                         </div>
-                        <div className="rm" onClick={() => removeSaved(k)} role="button" tabIndex={0}>Remove</div>
+                        <div className="rm" onClick={() => animateAway(k, removeSaved)} role="button" tabIndex={0}>Remove</div>
                       </div>
                     </div>
                     <div className="price" style={{ color: "var(--ink-soft)" }}>{formatBdt(i.priceBdt, locale)}</div>

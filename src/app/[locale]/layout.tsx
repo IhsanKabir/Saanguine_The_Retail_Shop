@@ -8,6 +8,7 @@ import Footer from "@/components/storefront/Footer";
 import { CartProvider } from "@/lib/cart-context";
 import { WishlistProvider } from "@/lib/wishlist-context";
 import CartDrawer from "@/components/storefront/CartDrawer";
+import RouteTransition from "@/components/storefront/RouteTransition";
 import HtmlLangSync from "@/components/storefront/HtmlLangSync";
 import SessionTracker from "@/components/storefront/SessionTracker";
 import FloatingChat from "@/components/storefront/FloatingChat";
@@ -40,7 +41,7 @@ export default async function LocaleLayout({
       <CartProvider>
         <WishlistProvider>
           <TopNav />
-          <main id="main">{children}</main>
+          <main id="main"><RouteTransition>{children}</RouteTransition></main>
           <Footer />
           <CartDrawer />
           <FloatingChat />
