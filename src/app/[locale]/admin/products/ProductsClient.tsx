@@ -6,6 +6,7 @@ import type { Segment, Product } from "@/lib/schema";
 import Composition from "@/components/storefront/Composition";
 import Icon from "@/components/storefront/Icon";
 import { formatBdt } from "@/lib/utils";
+import ProductImagesEditor from "./ProductImagesEditor";
 
 type Props = { segments: Segment[]; products: Product[] };
 
@@ -172,6 +173,14 @@ export default function ProductsClient({ segments, products }: Props) {
               <div className="field"><label>Colours (comma-separated)</label><input value={editing.colors} onChange={(e) => setEditing({ ...editing, colors: e.target.value })} placeholder="Aubergine, Obsidian, Rose"/></div>
               <div className="field"><label>Sizes (comma-separated)</label><input value={editing.sizes} onChange={(e) => setEditing({ ...editing, sizes: e.target.value })} placeholder="XS, S, M, L, XL"/></div>
             </div>
+
+            {editing.id ? (
+              <ProductImagesEditor productId={editing.id} productSku={editing.sku} />
+            ) : (
+              <p style={{ marginTop: 14, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.6 }}>
+                <i>Save the product first, then re-open this dialog to add photographs.</i>
+              </p>
+            )}
 
             <div style={{ display: "flex", gap: 10, marginTop: 18, justifyContent: "flex-end" }}>
               <button className="btn btn-ghost btn-sm" onClick={() => setEditing(null)}>Cancel</button>

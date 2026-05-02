@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
-import { getProductBySlug, getSegmentBySlug, getRelatedProducts } from "@/lib/queries";
+import { getProductBySlug, getSegmentBySlug, getRelatedProducts, getProductImages } from "@/lib/queries";
 import { trackEvent } from "@/lib/events";
 import { Link } from "@/i18n/routing";
 import { formatBdt } from "@/lib/utils";
-import Composition from "@/components/storefront/Composition";
 import Icon from "@/components/storefront/Icon";
 import ProductCard from "@/components/storefront/ProductCard";
 import AddToBagButton from "@/components/storefront/AddToBagButton";
+import PdpGallery from "@/components/storefront/PdpGallery";
 
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
@@ -47,7 +47,10 @@ export default async function ProductPage({ params }: Props) {
   const p = await getProductBySlug(slug).catch(() => null);
   if (!p) notFound();
   const seg = p.segmentId ? await getSegmentBySlug(p.segmentId).catch(() => null) : null;
-  const related = p.segmentId ? await getRelatedProducts(p.id, p.segmentId).catch(() => []) : [];
+  const [related, photos] = await Promise.all([
+    p.segmentId ? getRelatedProducts(p.id, p.segmentId).catch(() => []) : Promise.resolve([]),
+    getProductImages(p.id).catch(() => []),
+  ]);
 
   const isBn = locale === "bn";
   const name = (isBn && p.nameBn) || p.name;
@@ -89,25 +92,15 @@ export default async function ProductPage({ params }: Props) {
         <span className="current">{name}</span>
       </div>
       <section className="pdp" data-cursor="loupe">
-        <div className="pdp-gallery">
-          <div className="pdp-thumbs">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className={"pdp-thumb " + (i === 0 ? "active" : "")}>
-                <Composition cat={p.segmentId || "clothing"} sku={p.sku + "-" + i} name={p.name} variant={i} small />
-              </div>
-            ))}
-          </div>
-          <div className="pdp-main-img">
-            <Composition
-              cat={p.segmentId || "clothing"}
-              sku={p.sku}
-              name={p.name}
-              tag={p.tag}
-              ribbon={p.tag === "new" ? "New" : null}
-              sale={p.tag === "sale"}
-            />
-          </div>
-        </div>
+        <PdpGallery
+          photos={photos.map((ph) => ({ url: ph.url, alt: ph.alt }))}
+          fallback={{
+            cat: p.segmentId || "clothing",
+            sku: p.sku,
+            name: p.name,
+            tag: p.tag,
+          }}
+        />
         <div className="pdp-info">
           <div className="collection">{(segTag || "").toUpperCase()} · {p.sku}</div>
           <h1>{name}</h1>

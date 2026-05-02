@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/routing";
-import { getVisibleSegments, getLiveProducts } from "@/lib/queries";
+import { getVisibleSegments, getLiveProducts, getHeroImagesFor } from "@/lib/queries";
 import Composition from "@/components/storefront/Composition";
 import ProductCard from "@/components/storefront/ProductCard";
 import Icon from "@/components/storefront/Icon";
@@ -44,6 +44,11 @@ export default async function Home({ params }: Props) {
   const segs = segments ?? [];
   const news = newArrivals ?? [];
   const eds = editors ?? [];
+  // Single batched fetch of hero images for every product on the page.
+  const allProductIds = Array.from(new Set([...news, ...eds].map((p) => p.id)));
+  const heroImages = allProductIds.length > 0
+    ? await safeQuery(getHeroImagesFor(allProductIds)) ?? new Map()
+    : new Map();
 
   // Bento takes the first 6 visible products
   const bento = (eds.length >= 6 ? eds : [...eds, ...news]).slice(0, 6);
@@ -166,7 +171,7 @@ export default async function Home({ params }: Props) {
               const seg = segs.find((s) => s.id === p.segmentId);
               return (
                 <div key={p.id} data-reveal data-reveal-delay={i + 1}>
-                  <ProductCard product={p} segmentTag={seg?.tag} />
+                  <ProductCard product={p} segmentTag={seg?.tag} heroImage={heroImages.get(p.id) ?? null} />
                 </div>
               );
             })}
@@ -326,7 +331,7 @@ export default async function Home({ params }: Props) {
               const seg = segs.find((s) => s.id === p.segmentId);
               return (
                 <div key={p.id} data-reveal data-reveal-delay={(i % 3) + 1}>
-                  <ProductCard product={p} segmentTag={seg?.tag} />
+                  <ProductCard product={p} segmentTag={seg?.tag} heroImage={heroImages.get(p.id) ?? null} />
                 </div>
               );
             })}

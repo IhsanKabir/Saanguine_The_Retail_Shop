@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
-import { getSegmentBySlug, getLiveProducts } from "@/lib/queries";
+import { getSegmentBySlug, getLiveProducts, getHeroImagesFor } from "@/lib/queries";
 import { Link } from "@/i18n/routing";
 import ProductCard from "@/components/storefront/ProductCard";
 
@@ -33,6 +33,9 @@ export default async function SegmentPage({ params }: Props) {
   const items = showStock
     ? await getLiveProducts({ segmentId: segment }).catch(() => [])
     : [];
+  const heroImages = items.length > 0
+    ? await getHeroImagesFor(items.map((i) => i.id)).catch(() => new Map())
+    : new Map();
 
   const name = (locale === "bn" && seg.nameBn) || seg.name;
   const tag = (locale === "bn" && seg.tagBn) || seg.tag || "";
@@ -71,7 +74,7 @@ export default async function SegmentPage({ params }: Props) {
           items.length > 0 ? (
             <div className="grid grid-4">
               {items.map((p) => (
-                <ProductCard key={p.id} product={p} segmentTag={tag} />
+                <ProductCard key={p.id} product={p} segmentTag={tag} heroImage={heroImages.get(p.id) ?? null} />
               ))}
             </div>
           ) : (

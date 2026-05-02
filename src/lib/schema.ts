@@ -46,9 +46,12 @@ export const productImages = pgTable("product_images", {
   id: uuid("id").primaryKey().defaultRandom(),
   productId: text("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
   url: text("url").notNull(),
+  path: text("path"),                          // storage path so we can remove the blob on delete
   alt: text("alt"),
   sortOrder: integer("sort_order").default(0).notNull(),
 });
+
+export type ProductImage = typeof productImages.$inferSelect;
 
 // ─── Customers (Supabase Auth owns auth.users; we add a profile) ───────
 export const customerProfiles = pgTable("customer_profiles", {

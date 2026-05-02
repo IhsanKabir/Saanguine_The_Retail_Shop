@@ -66,6 +66,23 @@ export async function getProductImages(productId: string) {
     .orderBy(asc(productImages.sortOrder));
 }
 
+/**
+ * Batch-fetch hero (first) image for a list of products. Returns a map
+ * keyed by productId. Use on listing pages so we can render real photos
+ * with one query instead of N.
+ */
+export async function getHeroImagesFor(productIds: string[]): Promise<Map<string, { url: string; alt: string | null }>> {
+  if (productIds.length === 0) return new Map();
+  const rows = await db.select().from(productImages)
+    .where(inArray(productImages.productId, productIds))
+    .orderBy(asc(productImages.sortOrder));
+  const out = new Map<string, { url: string; alt: string | null }>();
+  for (const r of rows) {
+    if (!out.has(r.productId)) out.set(r.productId, { url: r.url, alt: r.alt });
+  }
+  return out;
+}
+
 export async function getRelatedProducts(productId: string, segmentId: string, limit = 4) {
   return db.select().from(products)
     .where(and(eq(products.status, "live"), eq(products.segmentId, segmentId), sql`${products.id} != ${productId}`))
