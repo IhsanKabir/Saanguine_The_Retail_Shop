@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/routing";
 import { useSearchParams } from "next/navigation";
@@ -9,6 +9,14 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 type Mode = "password" | "magic";
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInInner />
+    </Suspense>
+  );
+}
+
+function SignInInner() {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
