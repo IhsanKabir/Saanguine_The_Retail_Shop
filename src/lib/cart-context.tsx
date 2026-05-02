@@ -21,10 +21,16 @@ export type AppliedCoupon = {
   freeShipping: boolean;
 };
 
-type State = { items: CartItem[]; open: boolean; hydrated: boolean; coupon: AppliedCoupon | null };
+type State = {
+  items: CartItem[];
+  saved: CartItem[];                       // save-for-later list
+  open: boolean;
+  hydrated: boolean;
+  coupon: AppliedCoupon | null;
+};
 
 type Action =
-  | { type: "HYDRATE"; items: CartItem[]; coupon: AppliedCoupon | null }
+  | { type: "HYDRATE"; items: CartItem[]; saved: CartItem[]; coupon: AppliedCoupon | null }
   | { type: "ADD"; item: CartItem }
   | { type: "INC"; key: string }
   | { type: "DEC"; key: string }
@@ -32,23 +38,29 @@ type Action =
   | { type: "CLEAR" }
   | { type: "OPEN" }
   | { type: "CLOSE" }
-  | { type: "SET_COUPON"; coupon: AppliedCoupon | null };
+  | { type: "SET_COUPON"; coupon: AppliedCoupon | null }
+  | { type: "SAVE_FOR_LATER"; key: string }
+  | { type: "MOVE_TO_CART"; key: string }
+  | { type: "REMOVE_SAVED"; key: string };
 
 const ITEMS_KEY = "ssg-cart-v1";
+const SAVED_KEY = "ssg-saved-v1";
 const COUPON_KEY = "ssg-coupon-v1";
 const itemKey = (i: { productId: string; color?: string | null; size?: string | null }) =>
   `${i.productId}::${i.color ?? ""}::${i.size ?? ""}`;
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case "HYDRATE": return { ...state, items: action.items, coupon: action.coupon, hydrated: true };
+    case "HYDRATE": return { ...state, items: action.items, saved: action.saved, coupon: action.coupon, hydrated: true };
     case "ADD": {
       const k = itemKey(action.item);
       const existing = state.items.findIndex((x) => itemKey(x) === k);
       const next = [...state.items];
       if (existing >= 0) next[existing] = { ...next[existing], qty: next[existing].qty + action.item.qty };
       else next.push(action.item);
-      return { ...state, items: next, open: true };
+      // If this item was saved-for-later, remove it from the saved list now.
+      const saved = state.saved.filter((x) => itemKey(x) !== k);
+      return { ...state, items: next, saved, open: true };
     }
     case "INC": return { ...state, items: state.items.map((x) => itemKey(x) === action.key ? { ...x, qty: x.qty + 1 } : x) };
     case "DEC": return { ...state, items: state.items.map((x) => itemKey(x) === action.key ? { ...x, qty: Math.max(1, x.qty - 1) } : x) };
@@ -57,12 +69,33 @@ function reducer(state: State, action: Action): State {
     case "OPEN":   return { ...state, open: true };
     case "CLOSE":  return { ...state, open: false };
     case "SET_COUPON": return { ...state, coupon: action.coupon };
+    case "SAVE_FOR_LATER": {
+      const item = state.items.find((x) => itemKey(x) === action.key);
+      if (!item) return state;
+      // Dedupe by key so re-saving doesn't duplicate.
+      const saved = [{ ...item, qty: 1 }, ...state.saved.filter((x) => itemKey(x) !== action.key)];
+      const items = state.items.filter((x) => itemKey(x) !== action.key);
+      return { ...state, items, saved };
+    }
+    case "MOVE_TO_CART": {
+      const item = state.saved.find((x) => itemKey(x) === action.key);
+      if (!item) return state;
+      const k = itemKey(item);
+      const existing = state.items.findIndex((x) => itemKey(x) === k);
+      const items = [...state.items];
+      if (existing >= 0) items[existing] = { ...items[existing], qty: items[existing].qty + item.qty };
+      else items.push(item);
+      const saved = state.saved.filter((x) => itemKey(x) !== action.key);
+      return { ...state, items, saved };
+    }
+    case "REMOVE_SAVED": return { ...state, saved: state.saved.filter((x) => itemKey(x) !== action.key) };
     default: return state;
   }
 }
 
 type CartCtx = {
   items: CartItem[];
+  saved: CartItem[];
   open: boolean;
   hydrated: boolean;
   count: number;
@@ -76,17 +109,21 @@ type CartCtx = {
   openDrawer: () => void;
   closeDrawer: () => void;
   setCoupon: (coupon: AppliedCoupon | null) => void;
+  saveForLater: (key: string) => void;
+  moveToCart: (key: string) => void;
+  removeSaved: (key: string) => void;
   itemKey: typeof itemKey;
 };
 
 const Ctx = createContext<CartCtx | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, { items: [], open: false, hydrated: false, coupon: null });
+  const [state, dispatch] = useReducer(reducer, { items: [], saved: [], open: false, hydrated: false, coupon: null });
 
   // Hydrate from localStorage once on mount.
   useEffect(() => {
     let items: CartItem[] = [];
+    let saved: CartItem[] = [];
     let coupon: AppliedCoupon | null = null;
     try {
       const raw = localStorage.getItem(ITEMS_KEY);
@@ -94,10 +131,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items = Array.isArray(parsed) ? parsed : [];
     } catch {}
     try {
+      const raw = localStorage.getItem(SAVED_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      saved = Array.isArray(parsed) ? parsed : [];
+    } catch {}
+    try {
       const raw = localStorage.getItem(COUPON_KEY);
       coupon = raw ? JSON.parse(raw) : null;
     } catch {}
-    dispatch({ type: "HYDRATE", items, coupon });
+    dispatch({ type: "HYDRATE", items, saved, coupon });
   }, []);
 
   // Persist on changes.
@@ -105,6 +147,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (!state.hydrated) return;
     try { localStorage.setItem(ITEMS_KEY, JSON.stringify(state.items)); } catch {}
   }, [state.items, state.hydrated]);
+
+  useEffect(() => {
+    if (!state.hydrated) return;
+    try { localStorage.setItem(SAVED_KEY, JSON.stringify(state.saved)); } catch {}
+  }, [state.saved, state.hydrated]);
 
   useEffect(() => {
     if (!state.hydrated) return;
@@ -116,6 +163,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value: CartCtx = {
     items: state.items,
+    saved: state.saved,
     open: state.open,
     hydrated: state.hydrated,
     coupon: state.coupon,
@@ -129,6 +177,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     openDrawer: useCallback(() => dispatch({ type: "OPEN" }), []),
     closeDrawer: useCallback(() => dispatch({ type: "CLOSE" }), []),
     setCoupon: useCallback((coupon) => dispatch({ type: "SET_COUPON", coupon }), []),
+    saveForLater: useCallback((key) => dispatch({ type: "SAVE_FOR_LATER", key }), []),
+    moveToCart: useCallback((key) => dispatch({ type: "MOVE_TO_CART", key }), []),
+    removeSaved: useCallback((key) => dispatch({ type: "REMOVE_SAVED", key }), []),
     itemKey,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

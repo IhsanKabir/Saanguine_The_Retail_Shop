@@ -5,6 +5,7 @@ import Composition from "@/components/storefront/Composition";
 import ProductCard from "@/components/storefront/ProductCard";
 import Icon from "@/components/storefront/Icon";
 import NewsletterForm from "@/components/storefront/NewsletterForm";
+import RecentlyViewedStrip from "@/components/storefront/RecentlyViewedStrip";
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -338,6 +339,9 @@ export default async function Home({ params }: Props) {
           </div>
         </section>
       )}
+
+      {/* ─── Recently viewed (client-rendered, hidden if list is empty) ─ */}
+      <RecentlyViewedStrip />
 
       {/* ─── Newsletter / Letters from the Maison ───────────────── */}
       <section className="letters" data-cursor="seal">

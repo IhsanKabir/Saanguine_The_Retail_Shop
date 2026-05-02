@@ -14,7 +14,7 @@ export default function CartDrawer() {
   const t = useTranslations();
   const locale = useLocale() as "en" | "bn";
   const router = useRouter();
-  const { items, open, closeDrawer, inc, dec, remove, subtotalBdt, itemKey, coupon } = useCart();
+  const { items, saved, open, closeDrawer, inc, dec, remove, subtotalBdt, itemKey, coupon, saveForLater, moveToCart, removeSaved } = useCart();
   if (!open) return null;
   const discount = coupon?.discountBdt ?? 0;
   const afterDiscount = Math.max(0, subtotalBdt - discount);
@@ -74,13 +74,45 @@ export default function CartDrawer() {
                           <button onClick={() => inc(k)} aria-label="Increase">+</button>
                         </div>
                       </div>
-                      <div className="rm" onClick={() => remove(k)} role="button" tabIndex={0}>{t("cart.remove")}</div>
+                      <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
+                        <div className="rm" onClick={() => remove(k)} role="button" tabIndex={0}>{t("cart.remove")}</div>
+                        <div className="rm" onClick={() => saveForLater(k)} role="button" tabIndex={0} style={{ color: "var(--purple-700)" }}>
+                          Save for later
+                        </div>
+                      </div>
                     </div>
                     <div className="price">{formatBdt(i.priceBdt * i.qty, locale)}</div>
                   </div>
                 );
               })}
             </>
+          )}
+
+          {saved.length > 0 && (
+            <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: ".15em", color: "var(--ink-soft)", textTransform: "uppercase", marginBottom: 10 }}>
+                Saved for later · {saved.length}
+              </div>
+              {saved.map((i) => {
+                const k = itemKey(i);
+                return (
+                  <div key={k} className="cart-line" style={{ opacity: 0.85 }}>
+                    <Composition cat={i.cat} sku={i.sku} name={i.name} small style={{ aspectRatio: "3/4" }} />
+                    <div>
+                      <Link href={`/product/${i.slug}`} className="name" onClick={closeDrawer}>{i.name}</Link>
+                      <div className="meta">{i.color || ""}{i.size ? ` · ${i.size}` : ""}</div>
+                      <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                        <div className="rm" onClick={() => moveToCart(k)} role="button" tabIndex={0} style={{ color: "var(--purple-900)" }}>
+                          Move to bag
+                        </div>
+                        <div className="rm" onClick={() => removeSaved(k)} role="button" tabIndex={0}>Remove</div>
+                      </div>
+                    </div>
+                    <div className="price" style={{ color: "var(--ink-soft)" }}>{formatBdt(i.priceBdt, locale)}</div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
 

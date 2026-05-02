@@ -199,11 +199,24 @@ export async function createCodOrder(input: CreateOrderInput) {
   };
   const { subject, html } = orderPlacedEmail(emailData);
   sendEmail({ to: data.customer.email, toName: data.customer.fullName, subject, html })
+    .then((r) => logOrderEvent({
+      orderId: order.id,
+      type: "email_sent",
+      payload: { subject, to: data.customer.email, ok: r.ok, error: r.error ?? null },
+      actor: null,
+    }))
     .catch((e) => console.error("[order email]", e));
   sendSms(
     data.customer.phone,
     `Maison Saanguine: order ${number} confirmed (COD ${formatBdt(total)}). Have cash ready for our courier.`,
-  ).catch((e) => console.error("[order sms]", e));
+  )
+    .then((r) => logOrderEvent({
+      orderId: order.id,
+      type: "sms_sent",
+      payload: { to: data.customer.phone, ok: r.ok, error: r.error ?? null },
+      actor: null,
+    }))
+    .catch((e) => console.error("[order sms]", e));
 
   // 6. Record coupon redemption — fire-and-forget; never roll back a successful order.
   if (couponCode) {

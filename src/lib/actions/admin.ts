@@ -338,10 +338,21 @@ export async function bookCourier(input: z.infer<typeof courierSchema>) {
       tracking: trackingCode,
       trackingUrl: `${siteUrl}/en/order/${order.number}/track?t=${order.trackingToken}`,
     });
-    sendEmail({ to: order.guestEmail, toName: addr.fullName, subject, html }).catch(() => {});
+    sendEmail({ to: order.guestEmail, toName: addr.fullName, subject, html })
+      .then((r) => logOrderEvent({
+        orderId: order.id,
+        type: "email_sent",
+        payload: { subject, to: order.guestEmail, ok: r.ok, error: r.error ?? null },
+      }))
+      .catch(() => {});
   }
   if (order.guestPhone) {
     sendSms(order.guestPhone, `Maison Saanguine: ${order.number} shipped via ${data.courier} (${trackingCode}).`)
+      .then((r) => logOrderEvent({
+        orderId: order.id,
+        type: "sms_sent",
+        payload: { to: order.guestPhone, ok: r.ok, error: r.error ?? null },
+      }))
       .catch(() => {});
   }
 

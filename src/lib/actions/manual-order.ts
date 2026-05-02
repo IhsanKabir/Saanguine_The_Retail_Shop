@@ -143,8 +143,13 @@ export async function createManualOrder(input: z.infer<typeof manualSchema>) {
       paymentMethod: "cod",
       trackingUrl: `${SITE_URL}/en/order/${number}/track?t=${trackingToken}`,
     });
-    sendEmail({ to: data.customer.email, toName: data.customer.fullName, subject, html }).catch(() => {});
-    logOrderEvent({ orderId: order.id, type: "email_sent", payload: { subject, to: data.customer.email } }).catch(() => {});
+    sendEmail({ to: data.customer.email, toName: data.customer.fullName, subject, html })
+      .then((r) => logOrderEvent({
+        orderId: order.id,
+        type: "email_sent",
+        payload: { subject, to: data.customer.email, ok: r.ok, error: r.error ?? null },
+      }))
+      .catch(() => {});
   }
 
   revalidatePath("/[locale]/admin/orders", "page");

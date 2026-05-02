@@ -85,6 +85,22 @@ export async function getProductImages(productId: string) {
 }
 
 /**
+ * Fetch a list of products by id, preserving the input order, and excluding
+ * any that are now hidden / not live. Used by the recently-viewed strip.
+ */
+export async function getProductsByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  const rows = await db.select().from(products).where(and(
+    inArray(products.id, ids),
+    eq(products.status, "live"),
+    inArray(products.segmentId, visibleSegmentIds),
+  ));
+  // Preserve the input order — client passes most-recent first.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.map((id) => byId.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
+}
+
+/**
  * Batch-fetch hero (first) image for a list of products. Returns a map
  * keyed by productId. Use on listing pages so we can render real photos
  * with one query instead of N.

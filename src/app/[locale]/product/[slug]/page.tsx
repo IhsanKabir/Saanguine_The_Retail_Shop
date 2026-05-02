@@ -12,6 +12,8 @@ import PdpGallery from "@/components/storefront/PdpGallery";
 import JsonLd from "@/components/seo/JsonLd";
 import ReviewsSection from "@/components/storefront/ReviewsSection";
 import NotifyMeButton from "@/components/storefront/NotifyMeButton";
+import RecentlyViewedTracker from "@/components/storefront/RecentlyViewedTracker";
+import RecentlyViewedStrip from "@/components/storefront/RecentlyViewedStrip";
 import { listApprovedReviews } from "@/lib/actions/reviews";
 import { getCurrentUser } from "@/lib/auth-utils";
 import { db, schema } from "@/lib/db";
@@ -142,6 +144,7 @@ export default async function ProductPage({ params }: Props) {
   return (
     <>
       <JsonLd data={[productLd, breadcrumbLd]} />
+      <RecentlyViewedTracker productId={p.id} />
       <div className="crumbs">
         <Link href="/">Maison</Link>
         {seg && (
@@ -220,6 +223,7 @@ export default async function ProductPage({ params }: Props) {
         signedInButIneligible={signedInButIneligible}
         signInHref={`/${locale}/sign-in?next=${encodeURIComponent(`/${locale}/product/${p.slug}`)}`}
       />
+      <RecentlyViewedStrip excludeId={p.id} />
       {related.length > 0 && (
         <section className="section">
           <div className="section-hd">

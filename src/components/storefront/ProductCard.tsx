@@ -1,3 +1,5 @@
+"use client";
+
 import type { Product } from "@/lib/schema";
 import { Link } from "@/i18n/routing";
 import { useLocale } from "next-intl";
@@ -5,22 +7,27 @@ import Image from "next/image";
 import { formatBdt } from "@/lib/utils";
 import Composition from "./Composition";
 import WishHeart from "./WishHeart";
+import QuickView from "./QuickView";
 
 type Props = {
   product: Product;
   segmentTag?: string | null;
   /** Optional hero image (real photograph) — falls back to Composition art if omitted. */
   heroImage?: { url: string; alt: string | null } | null;
+  /** Show the quick-view trigger (defaults true). Disable on tight grids. */
+  quickView?: boolean;
 };
 
-export default function ProductCard({ product: p, segmentTag, heroImage }: Props) {
+export default function ProductCard({ product: p, segmentTag, heroImage, quickView = true }: Props) {
   const locale = useLocale() as "en" | "bn";
   const name = (locale === "bn" && p.nameBn) || p.name;
 
+  const showQuickView = quickView && p.stock > 0;
+
   return (
-    <article className="card">
+    <article className="card" style={{ position: "relative" }}>
       <Link href={`/product/${p.slug}`}>
-        <div style={{ position: "relative", aspectRatio: "3/4", overflow: "hidden" }}>
+        <div style={{ position: "relative", aspectRatio: "3/4", overflow: "hidden" }} className="card-cover">
           {heroImage ? (
             <Image
               src={heroImage.url}
@@ -51,6 +58,28 @@ export default function ProductCard({ product: p, segmentTag, heroImage }: Props
           </div>
         </div>
       </Link>
+      {showQuickView && (
+        <QuickView
+          product={{
+            id: p.id,
+            slug: p.slug,
+            sku: p.sku,
+            name: p.name,
+            nameBn: p.nameBn,
+            description: p.description,
+            descriptionBn: p.descriptionBn,
+            priceBdt: p.priceBdt,
+            wasBdt: p.wasBdt,
+            segmentId: p.segmentId,
+            tag: p.tag,
+            stock: p.stock,
+            colors: (p.colors as string[] | null) ?? [],
+            sizes: (p.sizes as string[] | null) ?? [],
+            heroImage: heroImage ?? null,
+          }}
+          trigger="pill"
+        />
+      )}
     </article>
   );
 }
