@@ -95,3 +95,78 @@ export function orderShippedEmail(d: OrderEmailData & { courier: string; trackin
   `;
   return { subject, html: SHELL(body) };
 }
+
+// ─── Pre-order request templates ─────────────────────────────────────
+export type PreorderEmailData = {
+  customerName: string;
+  segmentName: string;
+  description: string;
+  quantity: number;
+  budgetHintBdt?: number | null;
+  targetDate?: string | null;
+  attachmentCount: number;
+};
+
+export function preorderReceivedEmail(d: PreorderEmailData) {
+  const subject = `We have received your bespoke request · ${d.segmentName}`;
+  const body = `
+    <p style="font-size:15px;margin:0 0 6px;">Dear ${d.customerName.split(" ")[0] || "friend"},</p>
+    <p style="font-size:15px;margin:0 0 24px;">The maison has received your request for a piece in our <em>${d.segmentName}</em> collection. We will look it over carefully and write to you within a day or two with a quote and a proposed timeline.</p>
+    <p style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:.2em;color:#a07e2c;margin:0 0 8px;">YOUR REQUEST</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #e8d8a8;">
+      <tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;width:120px;">Quantity</td><td style="padding:10px 0;font-size:14px;">${d.quantity}</td></tr>
+      ${d.budgetHintBdt ? `<tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;">Budget hint</td><td style="padding:10px 0;font-size:14px;">${formatBdt(d.budgetHintBdt)}</td></tr>` : ""}
+      ${d.targetDate ? `<tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;">Hoped-for date</td><td style="padding:10px 0;font-size:14px;">${d.targetDate}</td></tr>` : ""}
+      ${d.attachmentCount > 0 ? `<tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;">References</td><td style="padding:10px 0;font-size:14px;">${d.attachmentCount} file${d.attachmentCount === 1 ? "" : "s"}</td></tr>` : ""}
+    </table>
+    <p style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:.2em;color:#a07e2c;margin:24px 0 8px;">YOU WROTE</p>
+    <p style="font-size:14px;color:#3a2a64;line-height:1.7;background:#f9f4ec;padding:14px 16px;border-left:2px solid #a07e2c;white-space:pre-wrap;margin:0;">${escapeHtml(d.description)}</p>
+    <p style="font-size:13px;color:#7a6a52;margin:32px 0 0;line-height:1.7;">No payment is due now. The maison will write back with a price and timeline; the piece is paid for on delivery.</p>
+    <p style="font-style:italic;font-size:14px;color:#2a1854;margin:24px 0 0;">— The atelier</p>
+  `;
+  return { subject, html: SHELL(body) };
+}
+
+export function preorderQuoteEmail(d: PreorderEmailData & { quotedPriceBdt: number; adminNotes?: string | null }) {
+  const subject = `A quote for your bespoke piece · ${d.segmentName}`;
+  const body = `
+    <p style="font-size:15px;margin:0 0 6px;">Dear ${d.customerName.split(" ")[0] || "friend"},</p>
+    <p style="font-size:15px;margin:0 0 24px;">We have considered your request and would be honoured to make this for you. The price for the piece, complete and delivered, is:</p>
+    <p style="text-align:center;font-family:Georgia,serif;font-size:36px;color:#2a1854;font-weight:400;margin:0 0 24px;">${formatBdt(d.quotedPriceBdt)}</p>
+    ${d.adminNotes ? `<p style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:.2em;color:#a07e2c;margin:0 0 8px;">FROM THE ATELIER</p><p style="font-size:14px;color:#3a2a64;line-height:1.7;background:#f9f4ec;padding:14px 16px;border-left:2px solid #a07e2c;white-space:pre-wrap;margin:0 0 24px;">${escapeHtml(d.adminNotes)}</p>` : ""}
+    <p style="font-size:13px;color:#7a6a52;margin:0 0 24px;line-height:1.7;">Reply to this email to accept and we will begin. The piece is paid for in cash when our courier arrives at your door — no deposit required.</p>
+    <p style="font-style:italic;font-size:14px;color:#2a1854;margin:24px 0 0;">— The atelier</p>
+  `;
+  return { subject, html: SHELL(body) };
+}
+
+export function preorderAdminNotifyEmail(d: PreorderEmailData & {
+  requestId: string;
+  customerEmail: string;
+  customerPhone: string | null;
+  adminUrl: string;
+}) {
+  const subject = `New pre-order request · ${d.segmentName} · ${d.customerName || d.customerEmail}`;
+  const body = `
+    <p style="font-size:15px;margin:0 0 24px;">A new bespoke request has arrived in <em>${d.segmentName}</em>.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-top:1px solid #e8d8a8;">
+      <tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;width:140px;">From</td><td style="padding:10px 0;font-size:14px;">${d.customerName || "(no name)"} · ${d.customerEmail}${d.customerPhone ? " · " + d.customerPhone : ""}</td></tr>
+      <tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;">Quantity</td><td style="padding:10px 0;font-size:14px;">${d.quantity}</td></tr>
+      ${d.budgetHintBdt ? `<tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;">Budget hint</td><td style="padding:10px 0;font-size:14px;">${formatBdt(d.budgetHintBdt)}</td></tr>` : ""}
+      ${d.targetDate ? `<tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;">Wants by</td><td style="padding:10px 0;font-size:14px;">${d.targetDate}</td></tr>` : ""}
+      <tr><td style="padding:10px 0;font-size:14px;color:#7a6a52;">References</td><td style="padding:10px 0;font-size:14px;">${d.attachmentCount} file${d.attachmentCount === 1 ? "" : "s"}</td></tr>
+    </table>
+    <p style="font-size:14px;color:#3a2a64;line-height:1.7;background:#f9f4ec;padding:14px 16px;border-left:2px solid #a07e2c;white-space:pre-wrap;margin:24px 0;">${escapeHtml(d.description)}</p>
+    <p style="margin:24px 0 0;"><a href="${d.adminUrl}" style="display:inline-block;background:#2a1854;color:#fdfbf7;text-decoration:none;padding:12px 22px;font-family:Georgia,serif;font-size:14px;letter-spacing:.05em;">Open in admin →</a></p>
+  `;
+  return { subject, html: SHELL(body) };
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}

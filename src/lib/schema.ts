@@ -11,6 +11,11 @@ export const segments = pgTable("segments", {
   blurb: text("blurb"),
   blurbBn: text("blurb_bn"),
   hidden: boolean("hidden").default(false).notNull(),
+  // Per-segment fulfilment toggles. Either, both, or neither can be live.
+  // stockEnabled=false hides product listings entirely from this segment.
+  // preorderEnabled=true reveals the bespoke request CTA.
+  stockEnabled: boolean("stock_enabled").default(true).notNull(),
+  preorderEnabled: boolean("preorder_enabled").default(false).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -211,9 +216,46 @@ export const siteSettings = pgTable("site_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── Pre-order requests (bespoke / sourced-to-order) ───────────────────
+export type PreorderAttachment = {
+  url: string;
+  path: string;        // storage path (for delete)
+  type: "image" | "video";
+  sizeBytes: number;
+  mime: string;
+};
+
+export const preorderRequests = pgTable("preorder_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  segmentId: text("segment_id").notNull().references(() => segments.id),
+  customerId: uuid("customer_id").notNull(),
+  customerEmail: text("customer_email").notNull(),
+  customerPhone: text("customer_phone"),
+  customerName: text("customer_name"),
+
+  description: text("description").notNull(),
+  quantity: integer("quantity").default(1).notNull(),
+  budgetHintBdt: integer("budget_hint_bdt"),
+  targetDate: text("target_date"),                 // YYYY-MM-DD as text for simplicity
+
+  deliveryAddress: jsonb("delivery_address"),
+  attachments: jsonb("attachments").$type<PreorderAttachment[]>().default([]).notNull(),
+
+  status: text("status").default("new").notNull(),
+  // 'new' | 'reviewing' | 'quoted' | 'confirmed' | 'rejected' | 'converted'
+  adminNotes: text("admin_notes"),
+  quotedPriceBdt: integer("quoted_price_bdt"),
+  rejectionReason: text("rejection_reason"),
+  convertedOrderId: uuid("converted_order_id"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── Type aliases for app code ─────────────────────────────────────────
 export type Segment = typeof segments.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderLine = typeof orderLines.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
+export type PreorderRequest = typeof preorderRequests.$inferSelect;

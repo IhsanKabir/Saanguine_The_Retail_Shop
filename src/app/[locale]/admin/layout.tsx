@@ -15,6 +15,7 @@ type Props = {
 type AdminPath =
   | "/admin"
   | "/admin/orders"
+  | "/admin/preorders"
   | "/admin/products"
   | "/admin/segments"
   | "/admin/inventory"
@@ -39,6 +40,7 @@ const NAV: Array<{
   { href: "/admin/behavior",  name: "Behavior",  icon: "feather", group: "Overview", perm: "behavior"  },
   { href: "/admin/reports",   name: "Reports",   icon: "feather", group: "Overview", perm: "reports"   },
   { href: "/admin/orders",    name: "Orders",    icon: "bag",     group: "Commerce", perm: "orders" },
+  { href: "/admin/preorders", name: "Pre-orders", icon: "feather", group: "Commerce", perm: "preorders" },
   { href: "/admin/products",  name: "Products",  icon: "feather", group: "Commerce", perm: "products" },
   { href: "/admin/segments",  name: "Segments",  icon: "feather", group: "Commerce", perm: "segments" },
   { href: "/admin/inventory", name: "Inventory", icon: "feather", group: "Commerce", perm: "inventory" },

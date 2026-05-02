@@ -10,7 +10,18 @@ type Props = { segments: Segment[]; products: Product[] };
 
 type Editing = {
   mode: "new" | "edit";
-  cat: { id?: string; name: string; nameBn: string; tag: string; tagBn: string; blurb: string; blurbBn: string; hidden: boolean };
+  cat: {
+    id?: string;
+    name: string;
+    nameBn: string;
+    tag: string;
+    tagBn: string;
+    blurb: string;
+    blurbBn: string;
+    hidden: boolean;
+    stockEnabled: boolean;
+    preorderEnabled: boolean;
+  };
 };
 
 export default function SegmentsClient({ segments, products }: Props) {
@@ -23,7 +34,7 @@ export default function SegmentsClient({ segments, products }: Props) {
 
   const startNew = () => setEditing({
     mode: "new",
-    cat: { name: "", nameBn: "", tag: "Maison", tagBn: "মেইসন", blurb: "", blurbBn: "", hidden: false },
+    cat: { name: "", nameBn: "", tag: "Maison", tagBn: "মেইসন", blurb: "", blurbBn: "", hidden: false, stockEnabled: true, preorderEnabled: false },
   });
 
   const onSave = () => {
@@ -39,6 +50,8 @@ export default function SegmentsClient({ segments, products }: Props) {
           blurb: editing.cat.blurb || null,
           blurbBn: editing.cat.blurbBn || null,
           hidden: editing.cat.hidden,
+          stockEnabled: editing.cat.stockEnabled,
+          preorderEnabled: editing.cat.preorderEnabled,
         });
       } else if (editing.cat.id) {
         await updateSegment(editing.cat.id, {
@@ -49,6 +62,8 @@ export default function SegmentsClient({ segments, products }: Props) {
           blurb: editing.cat.blurb || null,
           blurbBn: editing.cat.blurbBn || null,
           hidden: editing.cat.hidden,
+          stockEnabled: editing.cat.stockEnabled,
+          preorderEnabled: editing.cat.preorderEnabled,
         });
       }
       setEditing(null);
@@ -74,6 +89,11 @@ export default function SegmentsClient({ segments, products }: Props) {
                 <div className="seg-tag">{c.tag}</div>
                 <span className={"seg-status " + (c.hidden ? "draft" : "live")}>{c.hidden ? "Hidden" : "Live"}</span>
               </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                {c.stockEnabled && <span className="pill pill-info" style={{ fontSize: 9 }}>Stock</span>}
+                {c.preorderEnabled && <span className="pill pill-warn" style={{ fontSize: 9 }}>Pre-order</span>}
+                {!c.stockEnabled && !c.preorderEnabled && <span className="pill pill-err" style={{ fontSize: 9 }}>Nothing live</span>}
+              </div>
               <h3 className="seg-name">{c.name}</h3>
               <p className="seg-blurb">{c.blurb || <em style={{ color: "var(--ink-soft)" }}>No description</em>}</p>
               <div className="seg-meta">
@@ -95,6 +115,8 @@ export default function SegmentsClient({ segments, products }: Props) {
                   tag: c.tag || "", tagBn: c.tagBn || "",
                   blurb: c.blurb || "", blurbBn: c.blurbBn || "",
                   hidden: c.hidden,
+                  stockEnabled: c.stockEnabled,
+                  preorderEnabled: c.preorderEnabled,
                 },
               })}><Icon name="feather" size={14}/></button>
               <button className="seg-btn danger" onClick={() => setPendingDel(c)}><Icon name="x" size={14}/></button>
@@ -126,9 +148,20 @@ export default function SegmentsClient({ segments, products }: Props) {
                 </div>
                 <div className="field"><label>Blurb (EN)</label><input value={editing.cat.blurb} onChange={(e) => setEditing({ ...editing, cat: { ...editing.cat, blurb: e.target.value } })}/></div>
                 <div className="field"><label>Blurb (বাংলা)</label><input value={editing.cat.blurbBn} onChange={(e) => setEditing({ ...editing, cat: { ...editing.cat, blurbBn: e.target.value } })}/></div>
-                <label className="seg-check">
+                <div style={{ marginTop: 12, padding: 14, background: "#fcfaf6", border: "1px solid var(--line)" }}>
+                  <div style={{ fontSize: 11, letterSpacing: ".15em", color: "var(--ink-soft)", textTransform: "uppercase", marginBottom: 10 }}>Fulfilment</div>
+                  <label className="seg-check" style={{ marginBottom: 6 }}>
+                    <input type="checkbox" checked={editing.cat.stockEnabled} onChange={(e) => setEditing({ ...editing, cat: { ...editing.cat, stockEnabled: e.target.checked } })}/>
+                    <span><b>Show in-stock products</b><br/><small style={{ color: "var(--ink-soft)" }}>If off, the product list is hidden entirely on this segment&apos;s page.</small></span>
+                  </label>
+                  <label className="seg-check">
+                    <input type="checkbox" checked={editing.cat.preorderEnabled} onChange={(e) => setEditing({ ...editing, cat: { ...editing.cat, preorderEnabled: e.target.checked } })}/>
+                    <span><b>Allow bespoke pre-order requests</b><br/><small style={{ color: "var(--ink-soft)" }}>Customers can submit a custom request with reference images. You quote and convert to an order.</small></span>
+                  </label>
+                </div>
+                <label className="seg-check" style={{ marginTop: 14 }}>
                   <input type="checkbox" checked={editing.cat.hidden} onChange={(e) => setEditing({ ...editing, cat: { ...editing.cat, hidden: e.target.checked } })}/>
-                  Hide from storefront
+                  Hide entire segment from storefront
                 </label>
               </div>
             </div>

@@ -19,6 +19,7 @@ export const PERMISSIONS = [
   "behavior",  // sees behavior insights (top searches, page views, real funnel)
   "reports",   // sees Sales Report + COD Reconciliation + CSV export
   "coupons",   // creates / edits / revokes discount codes
+  "preorders", // reviews / quotes / converts bespoke pre-order requests
   "editorial",
   "settings",
   "users",
@@ -37,7 +38,7 @@ export const SUBADMIN_TEMPLATES: Record<string, { name: string; description: str
   fulfilment: {
     name: "Fulfilment",
     description: "Books couriers, manages stock, reconciles COD. No analytics or revenue totals.",
-    permissions: ["dashboard", "orders", "inventory", "reports"],
+    permissions: ["dashboard", "orders", "inventory", "reports", "preorders"],
   },
   catalogue: {
     name: "Catalogue",
@@ -57,7 +58,7 @@ export const SUBADMIN_TEMPLATES: Record<string, { name: string; description: str
   manager: {
     name: "Manager",
     description: "Everything except creating other admins. Includes revenue, reports, coupons.",
-    permissions: ["dashboard", "orders", "products", "segments", "inventory", "customers", "analytics", "behavior", "reports", "coupons", "editorial", "revenue"],
+    permissions: ["dashboard", "orders", "products", "segments", "inventory", "customers", "analytics", "behavior", "reports", "coupons", "preorders", "editorial", "revenue"],
   },
 };
 

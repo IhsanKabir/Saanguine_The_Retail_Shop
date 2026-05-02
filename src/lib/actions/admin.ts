@@ -24,6 +24,8 @@ const segSchema = z.object({
   blurb: z.string().max(200).optional().nullable(),
   blurbBn: z.string().max(200).optional().nullable(),
   hidden: z.boolean().optional(),
+  stockEnabled: z.boolean().optional(),
+  preorderEnabled: z.boolean().optional(),
 });
 
 export async function createSegment(input: z.infer<typeof segSchema>) {
@@ -39,6 +41,8 @@ export async function createSegment(input: z.infer<typeof segSchema>) {
     blurb: data.blurb || null,
     blurbBn: data.blurbBn || null,
     hidden: data.hidden ?? false,
+    stockEnabled: data.stockEnabled ?? true,
+    preorderEnabled: data.preorderEnabled ?? false,
   });
   revalidatePath("/", "layout");
   return { ok: true as const, id };
@@ -54,8 +58,11 @@ export async function updateSegment(id: string, patch: Partial<z.infer<typeof se
     ...(patch.blurb !== undefined && { blurb: patch.blurb || null }),
     ...(patch.blurbBn !== undefined && { blurbBn: patch.blurbBn || null }),
     ...(patch.hidden !== undefined && { hidden: patch.hidden }),
+    ...(patch.stockEnabled !== undefined && { stockEnabled: patch.stockEnabled }),
+    ...(patch.preorderEnabled !== undefined && { preorderEnabled: patch.preorderEnabled }),
   }).where(eq(schema.segments.id, id));
-  revalidatePath("/", "layout");
+  revalidatePath("/[locale]/shop", "layout");
+  revalidatePath("/[locale]/admin/segments", "page");
   return { ok: true as const };
 }
 

@@ -1,0 +1,251 @@
+"use server";
+
+import { z } from "zod";
+import { revalidatePath } from "next/cache";
+import { eq, desc } from "drizzle-orm";
+import { db, schema } from "@/lib/db";
+import { requireUser } from "@/lib/auth-utils";
+import { requirePermission } from "@/lib/auth-utils";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { sendEmail } from "@/lib/email/brevo";
+import {
+  preorderReceivedEmail,
+  preorderQuoteEmail,
+  preorderAdminNotifyEmail,
+} from "@/lib/email/templates";
+
+const attachmentSchema = z.object({
+  url: z.string().url(),
+  path: z.string().min(1).max(500),
+  type: z.enum(["image", "video"]),
+  sizeBytes: z.number().int().min(0).max(10_485_760),
+  mime: z.string().max(80),
+});
+
+const requestSchema = z.object({
+  segmentId: z.string().min(1).max(80),
+  description: z.string().min(10, "Tell the maison a little more (10+ characters).").max(4000),
+  quantity: z.number().int().min(1).max(50),
+  budgetHintBdt: z.number().int().min(0).max(10_000_000).optional().nullable(),
+  targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  customerName: z.string().min(1).max(120),
+  customerPhone: z.string().min(6).max(40).optional().nullable(),
+  deliveryAddress: z.object({
+    line1: z.string().min(1).max(200),
+    area: z.string().max(80).optional().nullable(),
+    city: z.string().min(1).max(80),
+    district: z.string().max(80).optional().nullable(),
+    postcode: z.string().max(20).optional().nullable(),
+  }).optional().nullable(),
+  attachments: z.array(attachmentSchema).max(5).default([]),
+});
+
+export type PreorderRequestInput = z.infer<typeof requestSchema>;
+
+export async function createPreorderRequest(
+  input: PreorderRequestInput,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const data = requestSchema.parse(input);
+
+  const seg = await db.select().from(schema.segments).where(eq(schema.segments.id, data.segmentId)).limit(1);
+  if (seg.length === 0 || seg[0].hidden || !seg[0].preorderEnabled) {
+    return { ok: false as const, error: "Pre-orders are not currently being accepted in this collection." };
+  }
+
+  const [row] = await db.insert(schema.preorderRequests).values({
+    segmentId: data.segmentId,
+    customerId: user.id,
+    customerEmail: user.email ?? "",
+    customerName: data.customerName,
+    customerPhone: data.customerPhone || null,
+    description: data.description,
+    quantity: data.quantity,
+    budgetHintBdt: data.budgetHintBdt ?? null,
+    targetDate: data.targetDate || null,
+    deliveryAddress: data.deliveryAddress ?? null,
+    attachments: data.attachments,
+  }).returning();
+
+  // Customer + admin notification emails — fire-and-forget, never block.
+  const customerPayload = {
+    customerName: data.customerName,
+    segmentName: seg[0].name,
+    description: data.description,
+    quantity: data.quantity,
+    budgetHintBdt: data.budgetHintBdt ?? null,
+    targetDate: data.targetDate ?? null,
+    attachmentCount: data.attachments.length,
+  };
+  if (user.email) {
+    const { subject, html } = preorderReceivedEmail(customerPayload);
+    sendEmail({ to: user.email, toName: data.customerName, subject, html }).catch(() => {});
+  }
+  const adminEmail = process.env.PREORDER_ADMIN_EMAIL || process.env.BREVO_FROM_EMAIL;
+  if (adminEmail) {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://saanguine.vercel.app";
+    const { subject, html } = preorderAdminNotifyEmail({
+      ...customerPayload,
+      requestId: row.id,
+      customerEmail: user.email ?? "",
+      customerPhone: data.customerPhone || null,
+      adminUrl: `${baseUrl}/en/admin/preorders?id=${row.id}`,
+    });
+    sendEmail({ to: adminEmail, subject, html }).catch(() => {});
+  }
+
+  revalidatePath("/[locale]/admin/preorders", "page");
+  return { ok: true as const, id: row.id };
+}
+
+// ─── Admin actions ──────────────────────────────────────────────────────
+
+export async function listPreorderRequests(opts?: { status?: string }) {
+  await requirePermission("preorders");
+  const rows = await db.select().from(schema.preorderRequests).orderBy(desc(schema.preorderRequests.createdAt));
+  return opts?.status ? rows.filter((r) => r.status === opts.status) : rows;
+}
+
+/**
+ * Generate fresh signed URLs for the attachments on a single request, so
+ * admins can preview customer references regardless of when they were
+ * uploaded. Service-role client bypasses RLS.
+ */
+export async function getPreorderAttachmentUrls(id: string): Promise<string[]> {
+  await requirePermission("preorders");
+  const [row] = await db.select().from(schema.preorderRequests).where(eq(schema.preorderRequests.id, id));
+  if (!row) return [];
+  const attachments = row.attachments ?? [];
+  if (attachments.length === 0) return [];
+  const sb = createSupabaseServiceClient();
+  const out: string[] = [];
+  for (const a of attachments) {
+    const { data } = await sb.storage.from("preorder-attachments").createSignedUrl(a.path, 60 * 60);
+    out.push(data?.signedUrl ?? "");
+  }
+  return out;
+}
+
+export async function setPreorderStatus(id: string, status: "reviewing" | "rejected") {
+  await requirePermission("preorders");
+  await db.update(schema.preorderRequests).set({ status }).where(eq(schema.preorderRequests.id, id));
+  revalidatePath("/[locale]/admin/preorders", "page");
+  return { ok: true as const };
+}
+
+const quoteSchema = z.object({
+  id: z.string().uuid(),
+  quotedPriceBdt: z.number().int().min(1).max(10_000_000),
+  adminNotes: z.string().max(2000).optional().nullable(),
+});
+
+export async function quotePreorderRequest(input: z.infer<typeof quoteSchema>) {
+  await requirePermission("preorders");
+  const data = quoteSchema.parse(input);
+
+  const [row] = await db.update(schema.preorderRequests)
+    .set({
+      status: "quoted",
+      quotedPriceBdt: data.quotedPriceBdt,
+      adminNotes: data.adminNotes ?? null,
+    })
+    .where(eq(schema.preorderRequests.id, data.id))
+    .returning();
+
+  if (!row) return { ok: false as const, error: "Request not found" };
+
+  // Email customer the quote.
+  if (row.customerEmail) {
+    const seg = await db.select().from(schema.segments).where(eq(schema.segments.id, row.segmentId)).limit(1);
+    const { subject, html } = preorderQuoteEmail({
+      customerName: row.customerName ?? "",
+      segmentName: seg[0]?.name ?? row.segmentId,
+      description: row.description,
+      quantity: row.quantity,
+      budgetHintBdt: row.budgetHintBdt ?? null,
+      targetDate: row.targetDate ?? null,
+      attachmentCount: (row.attachments ?? []).length,
+      quotedPriceBdt: data.quotedPriceBdt,
+      adminNotes: data.adminNotes ?? null,
+    });
+    sendEmail({ to: row.customerEmail, toName: row.customerName ?? undefined, subject, html }).catch(() => {});
+  }
+
+  revalidatePath("/[locale]/admin/preorders", "page");
+  return { ok: true as const };
+}
+
+const rejectSchema = z.object({
+  id: z.string().uuid(),
+  reason: z.string().min(1).max(1000),
+});
+
+export async function rejectPreorderRequest(input: z.infer<typeof rejectSchema>) {
+  await requirePermission("preorders");
+  const data = rejectSchema.parse(input);
+  await db.update(schema.preorderRequests)
+    .set({ status: "rejected", rejectionReason: data.reason })
+    .where(eq(schema.preorderRequests.id, data.id));
+  revalidatePath("/[locale]/admin/preorders", "page");
+  return { ok: true as const };
+}
+
+const convertSchema = z.object({
+  id: z.string().uuid(),
+});
+
+/**
+ * Convert a quoted+confirmed preorder into a real COD order. Creates an order
+ * row with a single bespoke line item priced at the quoted amount.
+ */
+export async function convertPreorderToOrder(input: z.infer<typeof convertSchema>) {
+  await requirePermission("preorders");
+  const data = convertSchema.parse(input);
+
+  const [req] = await db.select().from(schema.preorderRequests).where(eq(schema.preorderRequests.id, data.id));
+  if (!req) return { ok: false as const, error: "Request not found" };
+  if (!req.quotedPriceBdt) return { ok: false as const, error: "Quote the request before converting." };
+  if (!req.deliveryAddress) return { ok: false as const, error: "Customer did not provide a delivery address." };
+
+  const number = `SSG-PO-${Date.now().toString(36).toUpperCase()}`;
+  const subtotal = req.quotedPriceBdt * req.quantity;
+
+  const newOrderId = await db.transaction(async (tx) => {
+    const [order] = await tx.insert(schema.orders).values({
+      number,
+      customerId: req.customerId,
+      guestEmail: req.customerEmail,
+      guestPhone: req.customerPhone,
+      status: "cod_pending",
+      paymentMethod: "cod",
+      subtotalBdt: subtotal,
+      shippingBdt: 0,
+      codFeeBdt: 0,
+      totalBdt: subtotal,
+      shippingAddress: { fullName: req.customerName, phone: req.customerPhone, ...(req.deliveryAddress as object) },
+      notes: `Bespoke pre-order · request ${req.id}`,
+    }).returning({ id: schema.orders.id });
+
+    await tx.insert(schema.orderLines).values({
+      orderId: order.id,
+      productId: null,
+      nameSnapshot: `Bespoke piece · ${req.segmentId}`,
+      skuSnapshot: `BESPOKE-${req.id.slice(0, 8).toUpperCase()}`,
+      color: null,
+      size: null,
+      qty: req.quantity,
+      unitPriceBdt: req.quotedPriceBdt!,
+      lineTotalBdt: subtotal,
+    });
+
+    await tx.update(schema.preorderRequests)
+      .set({ status: "converted", convertedOrderId: order.id })
+      .where(eq(schema.preorderRequests.id, req.id));
+
+    return order.id;
+  });
+
+  revalidatePath("/[locale]/admin/preorders", "page");
+  revalidatePath("/[locale]/admin/orders", "page");
+  return { ok: true as const, orderId: newOrderId, number };
+}
