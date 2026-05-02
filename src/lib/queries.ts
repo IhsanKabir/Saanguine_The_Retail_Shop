@@ -126,14 +126,18 @@ export async function getRelatedProducts(productId: string, segmentId: string, l
 // ─── Search (Postgres full-text) ───────────────────────────────────────
 export async function searchProducts(query: string, limit = 8) {
   if (!query || query.trim().length < 2) return [];
-  const q = query.trim();
+  // Escape LIKE wildcards (% _ \) so a customer can't trigger pathological
+  // patterns like "%a%b%c%d..." against the index. The trimmed query is also
+  // capped at a sane length so a 4 KB input can't get pushed through.
+  const trimmed = query.trim().slice(0, 80);
+  const escaped = trimmed.replace(/[\\%_]/g, "\\$&");
   return db.select().from(products).where(
     and(
       eq(products.status, "live"),
       inArray(products.segmentId, visibleSegmentIds),
       or(
-        ilike(products.name, `%${q}%`),
-        ilike(products.sku, `%${q}%`),
+        ilike(products.name, `%${escaped}%`),
+        ilike(products.sku, `%${escaped}%`),
       ),
     ),
   ).limit(limit);

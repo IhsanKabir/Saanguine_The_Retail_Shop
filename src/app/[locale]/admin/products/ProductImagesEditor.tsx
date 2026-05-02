@@ -80,7 +80,7 @@ export default function ProductImagesEditor({ productId, productSku }: Props) {
           alt: `${productSku} — ${file.name.split(".")[0]}`,
         });
         if (!result.ok) {
-          setError("Could not record image.");
+          setError(result.error ?? "Could not record image.");
           break;
         }
       }

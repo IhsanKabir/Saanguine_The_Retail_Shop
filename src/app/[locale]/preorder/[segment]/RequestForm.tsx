@@ -12,12 +12,21 @@ type Props = {
   userEmail: string;
 };
 
+type AllowedMime =
+  | "image/jpeg" | "image/png" | "image/webp" | "image/gif"
+  | "video/mp4" | "video/quicktime" | "video/webm";
+
+const ALLOWED_MIMES: AllowedMime[] = [
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "video/mp4", "video/quicktime", "video/webm",
+];
+
 type LocalAttachment = {
   url: string;
   path: string;
   type: "image" | "video";
   sizeBytes: number;
-  mime: string;
+  mime: AllowedMime;
   fileName: string;
 };
 
@@ -66,6 +75,12 @@ export default function RequestForm({ segmentId, segmentName, userId, userEmail 
       const sb = createSupabaseBrowserClient();
       const next: LocalAttachment[] = [];
       for (const file of files) {
+        // Reject any mime not in the bucket policy whitelist before upload.
+        const mimeMaybe = file.type as AllowedMime;
+        if (!ALLOWED_MIMES.includes(mimeMaybe)) {
+          setUploadError(`${file.name}: type ${file.type || "unknown"} is not allowed.`);
+          break;
+        }
         const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
         const id = crypto.randomUUID();
         const path = `${userId}/${id}.${ext}`;
@@ -84,7 +99,7 @@ export default function RequestForm({ segmentId, segmentName, userId, userEmail 
           path,
           type: file.type.startsWith("video") ? "video" : "image",
           sizeBytes: file.size,
-          mime: file.type,
+          mime: mimeMaybe,
           fileName: file.name,
         });
       }

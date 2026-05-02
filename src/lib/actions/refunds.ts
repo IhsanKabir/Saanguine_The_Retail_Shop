@@ -22,35 +22,49 @@ export async function issueRefund(input: z.infer<typeof refundSchema>) {
   const ctx = await requirePermission("orders");
   const data = refundSchema.parse(input);
 
-  const [order] = await db.select().from(schema.orders).where(eq(schema.orders.id, data.orderId));
-  if (!order) return { ok: false as const, error: "Order not found" };
+  // Atomic guard: do the order lookup, refund-sum, and insert all inside one
+  // transaction, so two concurrent refund issuances cannot both pass a stale
+  // "already refunded" check. The transaction throws OVER_REFUND if the new
+  // refund would exceed the order total.
+  try {
+    await db.transaction(async (tx) => {
+      const [order] = await tx.select().from(schema.orders).where(eq(schema.orders.id, data.orderId));
+      if (!order) throw new Error("ORDER_NOT_FOUND");
 
-  // Don't allow over-refunding the order total. Sum existing refunds first.
-  const [existing] = await db.select({ total: sum(schema.refunds.amountBdt) }).from(schema.refunds)
-    .where(eq(schema.refunds.orderId, data.orderId));
-  const alreadyRefunded = Number(existing?.total ?? 0);
-  if (alreadyRefunded + data.amountBdt > order.totalBdt) {
-    return {
-      ok: false as const,
-      error: `Refund exceeds order total. Already refunded ৳${alreadyRefunded.toLocaleString("en-IN")}, attempting ৳${data.amountBdt.toLocaleString("en-IN")} more, order is ৳${order.totalBdt.toLocaleString("en-IN")}.`,
-    };
-  }
+      const [existing] = await tx.select({ total: sum(schema.refunds.amountBdt) }).from(schema.refunds)
+        .where(eq(schema.refunds.orderId, data.orderId));
+      const alreadyRefunded = Number(existing?.total ?? 0);
+      if (alreadyRefunded + data.amountBdt > order.totalBdt) {
+        throw new Error(`OVER_REFUND:${alreadyRefunded}:${order.totalBdt}`);
+      }
 
-  await db.transaction(async (tx) => {
-    await tx.insert(schema.refunds).values({
-      orderId: data.orderId,
-      amountBdt: data.amountBdt,
-      reason: data.reason,
-      method: data.method,
-      recipientInfo: data.recipientInfo ?? null,
-      processedBy: ctx.user.id,
-      processedByEmail: ctx.user.email ?? null,
-      notes: data.notes ?? null,
+      await tx.insert(schema.refunds).values({
+        orderId: data.orderId,
+        amountBdt: data.amountBdt,
+        reason: data.reason,
+        method: data.method,
+        recipientInfo: data.recipientInfo ?? null,
+        processedBy: ctx.user.id,
+        processedByEmail: ctx.user.email ?? null,
+        notes: data.notes ?? null,
+      });
+      if (data.fullRefund) {
+        await tx.update(schema.orders).set({ status: "refunded" }).where(eq(schema.orders.id, data.orderId));
+      }
     });
-    if (data.fullRefund) {
-      await tx.update(schema.orders).set({ status: "refunded" }).where(eq(schema.orders.id, data.orderId));
+  } catch (e) {
+    if (e instanceof Error && e.message === "ORDER_NOT_FOUND") {
+      return { ok: false as const, error: "Order not found" };
     }
-  });
+    if (e instanceof Error && e.message.startsWith("OVER_REFUND:")) {
+      const [, prev, total] = e.message.split(":");
+      return {
+        ok: false as const,
+        error: `Refund exceeds order total. Already refunded ৳${Number(prev).toLocaleString("en-IN")}, attempting ৳${data.amountBdt.toLocaleString("en-IN")} more, order is ৳${Number(total).toLocaleString("en-IN")}.`,
+      };
+    }
+    throw e;
+  }
 
   await logOrderEvent({
     orderId: data.orderId,

@@ -2,6 +2,8 @@
  * Brevo (Sendinblue) transactional email client.
  * Free tier: 300 emails/day. Failures are logged but never block order creation.
  */
+import { captureError } from "@/lib/monitoring";
+
 type SendArgs = {
   to: string;
   toName?: string;
@@ -40,13 +42,13 @@ export async function sendEmail(args: SendArgs): Promise<{ ok: boolean; id?: str
     });
     if (!res.ok) {
       const text = await res.text();
-      console.error("[brevo] send failed", res.status, text);
+      captureError(new Error(`[brevo] ${res.status}: ${text}`), { to: args.to, subject: args.subject });
       return { ok: false, error: `${res.status}: ${text}` };
     }
     const json = await res.json();
     return { ok: true, id: json.messageId };
   } catch (e) {
-    console.error("[brevo] exception", e);
+    captureError(e, { where: "brevo.sendEmail", to: args.to, subject: args.subject });
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }

@@ -16,11 +16,20 @@ export default function SignInPage() {
   );
 }
 
+function safeNext(raw: string | null, fallback: string): string {
+  if (!raw) return fallback;
+  if (!raw.startsWith("/")) return fallback;
+  if (raw.startsWith("//")) return fallback;
+  if (raw.includes("://")) return fallback;
+  if (raw.includes("\\")) return fallback;
+  return raw;
+}
+
 function SignInInner() {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/en/account";
+  const next = safeNext(searchParams.get("next"), "/en/account");
 
   const [mode, setMode] = useState<Mode>("password");
   const [email, setEmail] = useState("");

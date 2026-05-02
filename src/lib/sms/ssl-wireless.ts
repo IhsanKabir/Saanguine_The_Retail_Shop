@@ -40,12 +40,14 @@ export async function sendSms(rawPhone: string, message: string): Promise<{ ok: 
     });
     if (!res.ok) {
       const text = await res.text();
-      console.error("[sms] send failed", res.status, text);
+      const { captureError } = await import("@/lib/monitoring");
+      captureError(new Error(`[sms] ${res.status}: ${text}`), { phoneLast4: phone.slice(-4) });
       return { ok: false, error: `${res.status}: ${text}` };
     }
     return { ok: true };
   } catch (e) {
-    console.error("[sms] exception", e);
+    const { captureError } = await import("@/lib/monitoring");
+    captureError(e, { where: "sslwireless.sendSms", phoneLast4: phone.slice(-4) });
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }

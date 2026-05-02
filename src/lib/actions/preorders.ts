@@ -20,7 +20,14 @@ const attachmentSchema = z.object({
   path: z.string().min(1).max(500),
   type: z.enum(["image", "video"]),
   sizeBytes: z.number().int().min(0).max(10_485_760),
-  mime: z.string().max(80),
+  // Whitelist matches the bucket policy in 0005_preorder_requests.sql.
+  // Anything outside the whitelist would have been rejected at upload time
+  // anyway, but we lock it down here so downstream readers of `mime` can
+  // trust the value without re-validating.
+  mime: z.enum([
+    "image/jpeg", "image/png", "image/webp", "image/gif",
+    "video/mp4", "video/quicktime", "video/webm",
+  ]),
 });
 
 const requestSchema = z.object({

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, sql, inArray, and } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { requirePermission } from "@/lib/auth-utils";
 import { logOrderEvent } from "@/lib/order-events";
@@ -81,38 +81,52 @@ export async function createManualOrder(input: z.infer<typeof manualSchema>) {
   const number = `SSG-MX-${Date.now().toString(36).toUpperCase()}`;
   const trackingToken = randomBytes(16).toString("hex");
 
-  const [order] = await db.transaction(async (tx) => {
-    const [o] = await tx.insert(schema.orders).values({
-      number,
-      guestEmail: data.customer.email,
-      guestPhone: data.customer.phone,
-      status: "cod_pending",
-      paymentMethod: "cod",
-      subtotalBdt: subtotal,
-      shippingBdt: data.shippingBdt,
-      codFeeBdt: 0,
-      totalBdt: total,
-      shippingAddress: { fullName: data.customer.fullName, phone: data.customer.phone, ...data.shipping },
-      trackingToken,
-      notes: data.notes ? `[manual] ${data.notes}` : `[manual] phone-in order created by ${ctx.user.email ?? ctx.user.id}`,
-    }).returning();
+  let order: typeof schema.orders.$inferSelect;
+  try {
+    order = await db.transaction(async (tx) => {
+      const [o] = await tx.insert(schema.orders).values({
+        number,
+        guestEmail: data.customer.email,
+        guestPhone: data.customer.phone,
+        status: "cod_pending",
+        paymentMethod: "cod",
+        subtotalBdt: subtotal,
+        shippingBdt: data.shippingBdt,
+        codFeeBdt: 0,
+        totalBdt: total,
+        shippingAddress: { fullName: data.customer.fullName, phone: data.customer.phone, ...data.shipping },
+        trackingToken,
+        notes: data.notes ? `[manual] ${data.notes}` : `[manual] phone-in order created by ${ctx.user.email ?? ctx.user.id}`,
+      }).returning();
 
-    await tx.insert(schema.orderLines).values(lines.map((l) => ({ ...l, orderId: o.id })));
+      await tx.insert(schema.orderLines).values(lines.map((l) => ({ ...l, orderId: o.id })));
 
-    for (const l of lines) {
-      await tx.update(schema.products)
-        .set({ stock: sql`${schema.products.stock} - ${l.qty}` })
-        .where(eq(schema.products.id, l.productId));
-      await tx.insert(schema.inventoryLog).values({
-        productId: l.productId,
-        delta: -l.qty,
-        reason: "order",
-        referenceId: o.id,
-        actorId: ctx.user.id,
-      });
+      for (const l of lines) {
+        // Atomic stock decrement with guard — abort the transaction if a
+        // concurrent order took the unit between read and write.
+        const updated = await tx.update(schema.products)
+          .set({ stock: sql`${schema.products.stock} - ${l.qty}` })
+          .where(and(eq(schema.products.id, l.productId), sql`${schema.products.stock} >= ${l.qty}`))
+          .returning({ id: schema.products.id });
+        if (updated.length === 0) {
+          throw new Error(`OUT_OF_STOCK:${l.nameSnapshot}`);
+        }
+        await tx.insert(schema.inventoryLog).values({
+          productId: l.productId,
+          delta: -l.qty,
+          reason: "order",
+          referenceId: o.id,
+          actorId: ctx.user.id,
+        });
+      }
+      return o;
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("OUT_OF_STOCK:")) {
+      return { ok: false as const, error: `${e.message.slice("OUT_OF_STOCK:".length)} sold out before the manual order could be saved.` };
     }
-    return [o];
-  });
+    throw e;
+  }
 
   await logOrderEvent({
     orderId: order.id,

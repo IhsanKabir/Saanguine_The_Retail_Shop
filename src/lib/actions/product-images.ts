@@ -4,8 +4,14 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { eq, asc, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth-utils";
+import { requirePermission } from "@/lib/auth-utils";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+
+/** Allowed CDN prefix for product image URLs. Anything else is rejected so an
+ * admin (or compromised admin session) can't write arbitrary external image
+ * URLs to the DB and have them rendered on the storefront. */
+const SUPABASE_PUBLIC_PREFIX = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "")
+  + "/storage/v1/object/public/product-images/";
 
 /**
  * Image upload pattern: the admin browser uploads the file directly to
@@ -18,13 +24,29 @@ import { createSupabaseServiceClient } from "@/lib/supabase/server";
 const recordSchema = z.object({
   productId: z.string().min(1).max(120),
   url: z.string().url(),
-  path: z.string().min(1).max(500),
+  path: z.string().min(1).max(500).regex(/^[^\.][\w/.-]+$/, "Invalid storage path"),
   alt: z.string().max(200).optional().nullable(),
 });
 
 export async function recordProductImage(input: z.infer<typeof recordSchema>) {
-  await requireAdmin();
+  // Require the `products` permission specifically (not just admin tier),
+  // matching the storage RLS that ought to restrict bucket writes to
+  // catalogue editors. See migration 0006.
+  await requirePermission("products");
   const data = recordSchema.parse(input);
+
+  // Reject any URL that doesn't come from our own Supabase Storage bucket.
+  // Prevents an admin (or compromised admin session) from injecting an
+  // attacker-controlled image URL — stored XSS via OG image / phishing image.
+  if (!SUPABASE_PUBLIC_PREFIX || !data.url.startsWith(SUPABASE_PUBLIC_PREFIX)) {
+    return { ok: false as const, error: "Image URL must come from our storage bucket." };
+  }
+  // Cross-check that the URL and path agree — the URL should be the public
+  // CDN URL of the file at `path`. Eliminates URL-vs-path mismatch attacks.
+  const expectedTail = data.path.replace(/^\/+/, "");
+  if (!data.url.endsWith(expectedTail)) {
+    return { ok: false as const, error: "Image URL does not match the uploaded path." };
+  }
 
   // Place new image at the end of the order list.
   const [{ next }] = await db
@@ -47,7 +69,7 @@ export async function recordProductImage(input: z.infer<typeof recordSchema>) {
 }
 
 export async function deleteProductImage(id: string) {
-  await requireAdmin();
+  await requirePermission("products");
   const [row] = await db.select().from(schema.productImages).where(eq(schema.productImages.id, id));
   if (!row) return { ok: false as const, error: "Image not found" };
 
@@ -70,7 +92,7 @@ const altSchema = z.object({
 });
 
 export async function updateProductImageAlt(input: z.infer<typeof altSchema>) {
-  await requireAdmin();
+  await requirePermission("products");
   const data = altSchema.parse(input);
   await db.update(schema.productImages)
     .set({ alt: data.alt || null })
@@ -85,7 +107,7 @@ const reorderSchema = z.object({
 });
 
 export async function reorderProductImages(input: z.infer<typeof reorderSchema>) {
-  await requireAdmin();
+  await requirePermission("products");
   const data = reorderSchema.parse(input);
   await db.transaction(async (tx) => {
     for (let i = 0; i < data.orderedIds.length; i++) {
@@ -101,7 +123,7 @@ export async function reorderProductImages(input: z.infer<typeof reorderSchema>)
 }
 
 export async function listProductImages(productId: string) {
-  await requireAdmin();
+  await requirePermission("products");
   return db.select().from(schema.productImages)
     .where(eq(schema.productImages.productId, productId))
     .orderBy(asc(schema.productImages.sortOrder));

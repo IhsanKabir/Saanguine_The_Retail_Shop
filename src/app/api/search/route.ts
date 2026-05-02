@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { searchProducts } from "@/lib/queries";
 import { trackEvent } from "@/lib/events";
+import { captureError } from "@/lib/monitoring";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -26,6 +27,8 @@ export async function GET(req: Request) {
       })),
     });
   } catch (e) {
-    return NextResponse.json({ results: [], error: e instanceof Error ? e.message : String(e) });
+    // Log internally but do not leak DB error details to the client.
+    captureError(e, { where: "api/search", q });
+    return NextResponse.json({ results: [], error: "Search unavailable." }, { status: 500 });
   }
 }

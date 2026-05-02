@@ -43,32 +43,50 @@ export async function validateCoupon(rawCode: string, subtotalBdt: number): Prom
   return { ok: true, discountBdt, freeShipping, code: c.code, description: c.description };
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /**
- * Atomically increment usage and record redemption. Called from the order action
- * inside its transaction.
+ * Atomically increment a coupon's usage counter and record the redemption.
+ * Returns false if the coupon was exhausted by a concurrent order between
+ * validation and this call (the conditional UPDATE will affect zero rows).
+ *
+ * Pass `tx` to run inside an existing order transaction so the whole thing
+ * is one atomic unit. Without `tx`, runs in its own transaction.
  */
 export async function recordCouponRedemption(args: {
   code: string;
   orderId: string;
   discountBdt: number;
   customerEmail: string;
-}): Promise<void> {
+  tx?: Tx;
+}): Promise<boolean> {
   const codeUpper = args.code.toUpperCase();
-  await db.transaction(async (tx) => {
+  const run = async (tx: Tx) => {
     const [c] = await tx.select().from(schema.coupons)
       .where(eq(sql`upper(${schema.coupons.code})`, codeUpper))
       .limit(1);
-    if (!c) return;
-    await tx.update(schema.coupons)
+    if (!c) return false;
+
+    // Conditional UPDATE: only increment when the coupon still has capacity.
+    // Affects zero rows if a concurrent order took the last slot — race-safe.
+    const updated = await tx.update(schema.coupons)
       .set({ usedCount: sql`${schema.coupons.usedCount} + 1` })
-      .where(eq(schema.coupons.id, c.id));
+      .where(and(
+        eq(schema.coupons.id, c.id),
+        or(isNull(schema.coupons.maxUses), gt(schema.coupons.maxUses, schema.coupons.usedCount)),
+      ))
+      .returning({ id: schema.coupons.id });
+    if (updated.length === 0) return false;
+
     await tx.insert(schema.couponRedemptions).values({
       couponId: c.id,
       orderId: args.orderId,
       customerEmail: args.customerEmail,
       discountBdt: args.discountBdt,
     });
-  });
+    return true;
+  };
+  return args.tx ? run(args.tx) : db.transaction(run);
 }
 
 // ─── Admin CRUD ────────────────────────────────────────────────────────

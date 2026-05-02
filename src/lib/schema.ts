@@ -310,3 +310,41 @@ export type Order = typeof orders.$inferSelect;
 export type OrderLine = typeof orderLines.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type PreorderRequest = typeof preorderRequests.$inferSelect;
+
+/**
+ * Canonical shape of `orders.shippingAddress` jsonb. All fields optional so a
+ * single parser handles every historical row safely. Always use
+ * `parseShippingAddress(jsonb)` before reading individual fields rather than
+ * casting inline — historical orders or future regressions may have missing
+ * fields and inline casts will silently produce `undefined.foo` accesses.
+ */
+export type ShippingAddress = {
+  fullName?: string;
+  phone?: string;
+  line1?: string;
+  line2?: string;
+  area?: string;
+  city?: string;
+  district?: string;
+  division?: string;
+  postcode?: string;
+  country?: string;
+};
+
+export function parseShippingAddress(value: unknown): ShippingAddress {
+  if (!value || typeof value !== "object") return {};
+  const v = value as Record<string, unknown>;
+  const str = (k: string): string | undefined => (typeof v[k] === "string" ? (v[k] as string) : undefined);
+  return {
+    fullName: str("fullName"),
+    phone: str("phone"),
+    line1: str("line1"),
+    line2: str("line2"),
+    area: str("area"),
+    city: str("city"),
+    district: str("district"),
+    division: str("division"),
+    postcode: str("postcode"),
+    country: str("country"),
+  };
+}

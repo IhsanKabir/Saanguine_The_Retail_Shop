@@ -163,9 +163,17 @@ export async function getCodReconciliation(range: DateRange) {
 
 /**
  * CSV export of orders in range. Returns a string that the client downloads.
+ *
+ * Permission tiers:
+ *   - `reports`              → operational columns only (no PII, no revenue)
+ *   - `reports` + `customers` → adds name, email, phone, city
+ *   - `reports` + `revenue`   → adds the financial columns
  */
 export async function exportSalesCsv(range: DateRange): Promise<string> {
-  await requirePermission("reports");
+  const ctx = await requirePermission("reports");
+  const canSeeCustomers = ctx.has("customers");
+  const canSeeRevenue = ctx.has("revenue");
+
   const orders = await db.select().from(schema.orders)
     .where(and(
       gte(schema.orders.createdAt, range.from),
@@ -173,37 +181,36 @@ export async function exportSalesCsv(range: DateRange): Promise<string> {
     ))
     .orderBy(desc(schema.orders.createdAt));
 
-  const header = [
+  const header: string[] = [
     "order_number", "created_at", "status", "payment_method", "courier", "tracking",
-    "customer_name", "customer_email", "customer_phone",
-    "city", "subtotal_bdt", "shipping_bdt", "cod_fee_bdt", "total_bdt",
-  ].join(",");
+  ];
+  if (canSeeCustomers) header.push("customer_name", "customer_email", "customer_phone", "city");
+  if (canSeeRevenue) header.push("subtotal_bdt", "shipping_bdt", "cod_fee_bdt", "total_bdt");
 
   const escape = (v: unknown) => {
     if (v === null || v === undefined) return "";
-    const s = String(v).replace(/"/g, '""');
+    let s = String(v).replace(/"/g, '""');
+    // CSV-injection guard: cells starting with =, +, -, @, tab, or CR can be
+    // interpreted as formulas in Excel/Sheets. Prefix with a single quote to
+    // neutralise without distorting the data when read programmatically.
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n]/.test(s) ? `"${s}"` : s;
   };
 
   const rows = orders.map((o) => {
-    const a = o.shippingAddress as { fullName?: string; phone?: string; city?: string };
-    return [
+    const a = (o.shippingAddress ?? {}) as { fullName?: string; phone?: string; city?: string };
+    const cells: unknown[] = [
       o.number,
       o.createdAt?.toISOString() ?? "",
       o.status,
       o.paymentMethod,
       o.shippingCourier ?? "",
       o.shippingTracking ?? "",
-      a.fullName ?? "",
-      o.guestEmail ?? "",
-      a.phone ?? o.guestPhone ?? "",
-      a.city ?? "",
-      o.subtotalBdt,
-      o.shippingBdt,
-      o.codFeeBdt,
-      o.totalBdt,
-    ].map(escape).join(",");
+    ];
+    if (canSeeCustomers) cells.push(a.fullName ?? "", o.guestEmail ?? "", a.phone ?? o.guestPhone ?? "", a.city ?? "");
+    if (canSeeRevenue) cells.push(o.subtotalBdt, o.shippingBdt, o.codFeeBdt, o.totalBdt);
+    return cells.map(escape).join(",");
   });
 
-  return [header, ...rows].join("\n");
+  return [header.join(","), ...rows].join("\n");
 }

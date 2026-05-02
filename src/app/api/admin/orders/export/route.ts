@@ -27,10 +27,13 @@ export async function GET() {
     linesByOrder.set(l.orderId, arr);
   }
 
-  // RFC 4180 CSV escaping: wrap in quotes if the field contains comma, quote, newline, or CR.
+  // RFC 4180 CSV escaping plus formula-injection guard: cells starting with
+  // =, +, -, @, tab, or CR can be interpreted as formulas by Excel/Sheets.
+  // Prefix with a single quote to neutralise.
   const esc = (v: unknown): string => {
     if (v === null || v === undefined) return "";
-    const s = String(v);
+    let s = String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
     return s;
   };

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, gte, sql } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import { getCurrentUser, requirePermission } from "@/lib/auth-utils";
 import { sendEmail } from "@/lib/email/brevo";
@@ -23,6 +23,24 @@ const subscribeSchema = z.object({
 export async function subscribeBackInStock(input: z.infer<typeof subscribeSchema>) {
   const data = subscribeSchema.parse(input);
   const user = await getCurrentUser();
+
+  // Soft rate-limit: cap one email at 10 active subscriptions per hour.
+  // Defends against the action being abused as an email-spam vector or
+  // enumeration tool. Returns a uniform success shape so the caller can't
+  // distinguish "already registered" from "rate-limited" via response shape.
+  const oneHourAgo = new Date(Date.now() - 60 * 60_000);
+  const [{ recent }] = await db
+    .select({ recent: sql<number>`count(*)::int` })
+    .from(schema.stockNotifications)
+    .where(and(
+      sql`lower(${schema.stockNotifications.email}) = lower(${data.email})`,
+      gte(schema.stockNotifications.createdAt, oneHourAgo),
+    ));
+  if ((recent ?? 0) >= 10) {
+    // Same shape as success — no information leak about whether the email
+    // exists in the system.
+    return { ok: true as const, alreadyRegistered: true };
+  }
 
   // Idempotent: check first, insert if missing.
   const existing = await db.select().from(schema.stockNotifications).where(and(

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { getProductBySlug, getSegmentBySlug, getRelatedProducts, getProductImages } from "@/lib/queries";
-import { trackEvent } from "@/lib/events";
 import { Link } from "@/i18n/routing";
 import { formatBdt } from "@/lib/utils";
 import Icon from "@/components/storefront/Icon";
@@ -14,6 +13,7 @@ import ReviewsSection from "@/components/storefront/ReviewsSection";
 import NotifyMeButton from "@/components/storefront/NotifyMeButton";
 import RecentlyViewedTracker from "@/components/storefront/RecentlyViewedTracker";
 import RecentlyViewedStrip from "@/components/storefront/RecentlyViewedStrip";
+import ProductViewTracker from "@/components/storefront/ProductViewTracker";
 import { listApprovedReviews } from "@/lib/actions/reviews";
 import { getCurrentUser } from "@/lib/auth-utils";
 import { db, schema } from "@/lib/db";
@@ -61,8 +61,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProductPage({ params }: Props) {
-  const { slug: slugForEvent } = await params;
-  trackEvent({ type: "product_view", productId: slugForEvent, path: `/product/${slugForEvent}` }).catch(() => {});
   const { locale, slug } = await params;
   setRequestLocale(locale);
   const t = await getTranslations();
@@ -145,6 +143,7 @@ export default async function ProductPage({ params }: Props) {
     <>
       <JsonLd data={[productLd, breadcrumbLd]} />
       <RecentlyViewedTracker productId={p.id} />
+      <ProductViewTracker productId={p.id} path={`/product/${p.slug}`} />
       <div className="crumbs">
         <Link href="/">Maison</Link>
         {seg && (

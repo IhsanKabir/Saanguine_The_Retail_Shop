@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { db, schema } from "@/lib/db";
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, sql, inArray, and } from "drizzle-orm";
 import { sendEmail } from "@/lib/email/brevo";
 import { orderPlacedEmail, type OrderEmailLine } from "@/lib/email/templates";
 import { sendSms } from "@/lib/sms/ssl-wireless";
@@ -120,9 +120,14 @@ export async function createCodOrder(input: CreateOrderInput) {
   const total = Math.max(0, subtotal - couponDiscount) + shipping + COD_FEE;
   const number = generateOrderNumber();
 
-  // 4. Insert order + lines + decrement stock in a single transaction
+  // 4. Insert order + lines + decrement stock in a single transaction.
+  // If a concurrent order took the last unit between read and write, the
+  // atomic guard inside this transaction throws `OUT_OF_STOCK:<name>` which
+  // we surface as a friendly user-facing error.
   const trackingToken = randomBytes(16).toString("hex");
-  const [order] = await db.transaction(async (tx) => {
+  let order: typeof schema.orders.$inferSelect;
+  try {
+    const result = await db.transaction(async (tx) => {
     const [o] = await tx.insert(schema.orders).values({
       number,
       guestEmail: data.customer.email,
@@ -149,9 +154,16 @@ export async function createCodOrder(input: CreateOrderInput) {
     );
 
     for (const l of lines) {
-      await tx.update(schema.products)
+      // Atomic stock decrement with WHERE guard — if `stock >= qty` is no longer
+      // true (because a concurrent order beat us to the last unit), the UPDATE
+      // affects 0 rows and we throw to abort the whole transaction.
+      const updated = await tx.update(schema.products)
         .set({ stock: sql`${schema.products.stock} - ${l.qty}` })
-        .where(eq(schema.products.id, l.productId));
+        .where(and(eq(schema.products.id, l.productId), sql`${schema.products.stock} >= ${l.qty}`))
+        .returning({ id: schema.products.id });
+      if (updated.length === 0) {
+        throw new Error(`OUT_OF_STOCK:${l.nameSnapshot}`);
+      }
       await tx.insert(schema.inventoryLog).values({
         productId: l.productId,
         delta: -l.qty,
@@ -159,8 +171,34 @@ export async function createCodOrder(input: CreateOrderInput) {
         referenceId: o.id,
       });
     }
-    return [o];
+
+    // Coupon redemption inside the same transaction so race-losers roll back
+    // the entire order atomically (rather than leaving an order on the books
+    // with a coupon that exceeded its usage cap).
+    if (couponCode) {
+      const ok = await recordCouponRedemption({
+        code: couponCode,
+        orderId: o.id,
+        discountBdt: couponDiscount + (freeShipping ? baseShipping : 0),
+        customerEmail: data.customer.email,
+        tx,
+      });
+      if (!ok) throw new Error("COUPON_EXHAUSTED");
+    }
+
+    return o;
   });
+    order = result;
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("OUT_OF_STOCK:")) {
+      const name = e.message.slice("OUT_OF_STOCK:".length);
+      return { ok: false as const, error: `${name} sold out while we were preparing the order. Please refresh and try again.` };
+    }
+    if (e instanceof Error && e.message === "COUPON_EXHAUSTED") {
+      return { ok: false as const, error: "That coupon has just reached its usage limit. Please remove it or try another." };
+    }
+    throw e;
+  }
 
   // Log the creation event before any side-effects so the timeline starts cleanly.
   await logOrderEvent({
@@ -218,15 +256,7 @@ export async function createCodOrder(input: CreateOrderInput) {
     }))
     .catch((e) => console.error("[order sms]", e));
 
-  // 6. Record coupon redemption — fire-and-forget; never roll back a successful order.
-  if (couponCode) {
-    recordCouponRedemption({
-      code: couponCode,
-      orderId: order.id,
-      discountBdt: couponDiscount + (freeShipping ? baseShipping : 0),
-      customerEmail: data.customer.email,
-    }).catch((e) => console.error("[coupon redemption]", e));
-  }
+  // 6. Coupon redemption is now atomic with the order (above, inside the tx).
 
   // 7. Behavior analytics
   trackEvent({

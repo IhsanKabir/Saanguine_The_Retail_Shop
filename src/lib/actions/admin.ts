@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db, schema } from "@/lib/db";
+import { parseShippingAddress } from "@/lib/schema";
 import { eq, desc, sql, inArray } from "drizzle-orm";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin, requirePermission } from "@/lib/auth-utils";
@@ -258,7 +259,10 @@ export async function bookCourier(input: z.infer<typeof courierSchema>) {
   const [order] = await db.select().from(schema.orders).where(eq(schema.orders.id, data.orderId));
   if (!order) return { ok: false as const, error: "Order not found" };
   const lines = await db.select().from(schema.orderLines).where(eq(schema.orderLines.orderId, order.id));
-  const addr = order.shippingAddress as { fullName: string; phone: string; line1: string; area?: string; city: string };
+  const addr = parseShippingAddress(order.shippingAddress);
+  if (!addr.fullName || !addr.phone || !addr.line1 || !addr.city) {
+    return { ok: false as const, error: "Order is missing required shipping fields. Add an address before booking." };
+  }
   const itemQty = lines.reduce((s, l) => s + l.qty, 0);
 
   let trackingCode = "";
@@ -379,7 +383,11 @@ export async function updateBrand(input: z.infer<typeof brandSchema>) {
 
 export async function getBrand() {
   const rows = await db.select().from(schema.siteSettings).where(eq(schema.siteSettings.key, "brand"));
-  return (rows[0]?.value as z.infer<typeof brandSchema>) || null;
+  if (!rows[0]) return null;
+  // safeParse rather than blind cast — protects against historical / corrupted
+  // jsonb that doesn't conform to the current `brandSchema`.
+  const parsed = brandSchema.safeParse(rows[0].value);
+  return parsed.success ? parsed.data : null;
 }
 
 // ─── Admin user management (owner only) ───────────────────────────────
@@ -435,11 +443,26 @@ export async function listAdminUsers(): Promise<AdminUserSummary[]> {
 }
 
 export async function inviteAdminUser(input: z.infer<typeof subadminInputSchema>) {
-  await requirePermission("users");
+  const ctx = await requirePermission("users");
   const data = subadminInputSchema.parse(input);
+
+  // Only an existing owner may create another owner. Without this guard, an
+  // admin (in some future state where they have `users`) could self-escalate.
+  if (data.role === "owner" && ctx.role !== "owner") {
+    return { ok: false as const, error: "Only owners may create owner accounts." };
+  }
+
   const sb = adminClient();
-  const { data: existing } = await sb.auth.admin.listUsers();
-  const found = existing.users.find((u) => u.email?.toLowerCase() === data.email.toLowerCase());
+  // Paginate through all auth users (default perPage is 50) so that this lookup
+  // doesn't silently miss matches once the user count exceeds the first page.
+  let found: Awaited<ReturnType<typeof sb.auth.admin.listUsers>>["data"]["users"][number] | undefined;
+  let page = 1;
+  while (!found) {
+    const { data: existing } = await sb.auth.admin.listUsers({ page, perPage: 100 });
+    found = existing.users.find((u) => u.email?.toLowerCase() === data.email.toLowerCase());
+    if (existing.users.length < 100) break;
+    page++;
+  }
   const appMeta = data.role === "subadmin"
     ? { role: data.role, permissions: data.permissions }
     : { role: data.role };
@@ -462,10 +485,16 @@ export async function inviteAdminUser(input: z.infer<typeof subadminInputSchema>
 }
 
 export async function updateAdminUser(id: string, patch: { role?: AdminRole; permissions?: Permission[] }) {
-  await requirePermission("users");
+  const ctx = await requirePermission("users");
+
+  // Only owners may promote another user to owner.
+  if (patch.role === "owner" && ctx.role !== "owner") {
+    return { ok: false as const, error: "Only owners may promote a user to owner." };
+  }
+
   const sb = adminClient();
   const { data: { user }, error: getErr } = await sb.auth.admin.getUserById(id);
-  if (getErr || !user) throw new Error("User not found");
+  if (getErr || !user) return { ok: false as const, error: "User not found" };
   const meta = (user.app_metadata ?? {}) as Record<string, unknown>;
   const next: Record<string, unknown> = { ...meta };
   if (patch.role !== undefined) next.role = patch.role;
@@ -489,8 +518,38 @@ export async function demoteAdminUser(id: string) {
 }
 
 export async function deleteAdminUser(id: string) {
-  await requirePermission("users");
+  const ctx = await requirePermission("users");
+
+  // Self-deletion guard: a user with `users` permission could otherwise call
+  // this action directly (bypassing the UI's hidden delete button) and lock
+  // themselves out, with no recovery path short of Supabase dashboard access.
+  if (id === ctx.user.id) {
+    return { ok: false as const, error: "You cannot delete your own account." };
+  }
+
   const sb = adminClient();
+  const { data: { user: target } } = await sb.auth.admin.getUserById(id);
+  if (!target) return { ok: false as const, error: "User not found" };
+
+  // Last-owner guard: removing the only owner leaves the maison locked out.
+  const targetMeta = (target.app_metadata ?? {}) as { role?: string };
+  if (targetMeta.role === "owner") {
+    let owners = 0;
+    let page = 1;
+    for (;;) {
+      const { data } = await sb.auth.admin.listUsers({ page, perPage: 100 });
+      for (const u of data.users) {
+        const m = (u.app_metadata ?? {}) as { role?: string };
+        if (m.role === "owner") owners++;
+      }
+      if (data.users.length < 100) break;
+      page++;
+    }
+    if (owners <= 1) {
+      return { ok: false as const, error: "Cannot delete the last owner. Promote another user to owner first." };
+    }
+  }
+
   await sb.auth.admin.deleteUser(id);
   revalidatePath("/admin/users", "page");
   return { ok: true as const };
