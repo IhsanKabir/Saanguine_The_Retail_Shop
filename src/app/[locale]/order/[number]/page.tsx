@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { setRequestLocale, getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/routing";
 import { db, schema } from "@/lib/db";
+import { parseShippingAddress } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { formatBdt } from "@/lib/utils";
 import Icon from "@/components/storefront/Icon";
@@ -17,7 +18,8 @@ export default async function OrderConfirmation({ params }: Props) {
   const order = orders[0];
   if (!order) notFound();
   const lines = await db.select().from(schema.orderLines).where(eq(schema.orderLines.orderId, order.id)).catch(() => []);
-  const addr = order.shippingAddress as { fullName: string; phone: string; line1: string; area?: string; city: string; postcode?: string };
+  const addr = parseShippingAddress(order.shippingAddress);
+  const firstName = (addr.fullName ?? "").split(" ")[0] || "friend";
 
   return (
     <section className="section" style={{ maxWidth: 760, textAlign: "center", padding: "100px 32px 80px" }}>
@@ -28,7 +30,7 @@ export default async function OrderConfirmation({ params }: Props) {
         {t("checkout.orderConfirmed")}
       </div>
       <h1 className="serif" style={{ fontSize: 56, fontWeight: 400, color: "var(--purple-900)", margin: "0 0 16px", lineHeight: 1.1 }}>
-        {t("checkout.thankYou")}, {addr.fullName.split(" ")[0]}.
+        {t("checkout.thankYou")}, {firstName}.
       </h1>
       <p style={{ color: "var(--ink-soft)", fontSize: 16, maxWidth: 500, margin: "0 auto 28px", lineHeight: 1.7 }}>
         {t("checkout.orderId")} <b style={{ color: "var(--purple-900)" }}>{order.number}</b>. {t("checkout.haveCash")}
@@ -50,12 +52,14 @@ export default async function OrderConfirmation({ params }: Props) {
           <div className="serif" style={{ fontSize: 24, color: "var(--purple-900)" }}>COD</div>
         </div>
       </div>
-      <div style={{ textAlign: "left", maxWidth: 460, margin: "0 auto 32px", padding: "20px 24px", background: "var(--purple-50)", border: "1px solid var(--purple-200)" }}>
-        <div className="pdp-label">Delivering to</div>
-        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--purple-900)" }}>
-          {addr.fullName}<br/>{addr.line1}<br/>{addr.area ? addr.area + ", " : ""}{addr.city}{addr.postcode ? " — " + addr.postcode : ""}<br/>{addr.phone}
-        </p>
-      </div>
+      {(addr.fullName || addr.line1 || addr.city) && (
+        <div style={{ textAlign: "left", maxWidth: 460, margin: "0 auto 32px", padding: "20px 24px", background: "var(--purple-50)", border: "1px solid var(--purple-200)" }}>
+          <div className="pdp-label">Delivering to</div>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--purple-900)" }}>
+            {addr.fullName ?? "—"}<br/>{addr.line1 ?? ""}<br/>{addr.area ? addr.area + ", " : ""}{addr.city ?? ""}{addr.postcode ? " — " + addr.postcode : ""}<br/>{addr.phone ?? ""}
+          </p>
+        </div>
+      )}
       <Link href="/" className="btn btn-primary">{t("checkout.returnHome")}</Link>
     </section>
   );

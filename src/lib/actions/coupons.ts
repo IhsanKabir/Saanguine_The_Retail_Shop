@@ -69,11 +69,13 @@ export async function recordCouponRedemption(args: {
 
     // Conditional UPDATE: only increment when the coupon still has capacity.
     // Affects zero rows if a concurrent order took the last slot — race-safe.
+    // Use a raw SQL fragment for the column-vs-column comparison; some Drizzle
+    // versions interpret `gt(column, column)` differently from raw SQL.
     const updated = await tx.update(schema.coupons)
       .set({ usedCount: sql`${schema.coupons.usedCount} + 1` })
       .where(and(
         eq(schema.coupons.id, c.id),
-        or(isNull(schema.coupons.maxUses), gt(schema.coupons.maxUses, schema.coupons.usedCount)),
+        sql`(${schema.coupons.maxUses} is null or ${schema.coupons.usedCount} < ${schema.coupons.maxUses})`,
       ))
       .returning({ id: schema.coupons.id });
     if (updated.length === 0) return false;
